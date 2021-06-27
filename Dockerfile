@@ -8,5 +8,6 @@ RUN go build -o /go/bin/app .
 # Build run container
 FROM gcr.io/distroless/base
 COPY --from=build-env /go/bin/app /
+COPY --from=build-env /go/src/app/home.html /
 EXPOSE 8080/tcp
 CMD ["/app"]
