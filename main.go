@@ -42,6 +42,12 @@ func main() {
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
 	})
+	http.HandleFunc("/net/", func(w http.ResponseWriter, r *http.Request) {
+		serveNets(w, r)
+	})
+	http.HandleFunc("/net", func(w http.ResponseWriter, r *http.Request) {
+		serveNet(w, r)
+	})
 	err := http.ListenAndServe(*addr, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
