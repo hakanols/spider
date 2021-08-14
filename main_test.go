@@ -38,7 +38,7 @@ func TestBob(t *testing.T) {
 
 func TestBib(t *testing.T) {
 
-	go main()
+	//go main()
 
 	const addr1 = "ws://localhost:8080/net"
 
@@ -59,4 +59,20 @@ func TestBib(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	assert.Equal(t, "dummy", "dimmy", "Bytes do not match")
+}
+
+func TestMasterMap(t *testing.T) {
+	goggi := NewMastermap()
+	randKey := generateRandomKey()
+	_, ok := goggi.Get(randKey)
+	assert.False(t, ok, "No item with that key")
+
+	item := Net{}
+	goodKey := goggi.Register(item)
+	_, ok = goggi.Get(goodKey)
+	assert.True(t, ok, "Item with that key should exist")
+
+	goggi.Unregister(goodKey)
+	_, ok = goggi.Get(goodKey)
+	assert.False(t, ok, "No item with that key")
 }

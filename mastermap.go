@@ -1,33 +1,52 @@
-/*
+package main
+
 import (
-    "fmt"
-    "sync"
-    "time"
+	"math/rand"
+	"sync"
+	"time"
 )
 
+const keylength = 8
+
 type Mastermap struct {
-	var lock sync.Mutex
-	var seed int
+	lock sync.Mutex
+	items map[[keylength]byte]Net
 }
 
-func NewMastermap() {
-
-	seed = rand.Int()
+func NewMastermap() *Mastermap {
+	rand.Seed(time.Now().UnixNano())
+	return &Mastermap{items: make(map[[keylength]byte]Net)}
 }
 
-func (m Mastermap) register(net Net) string{
-    lock.Lock()
-    defer lock.Unlock()
+func generateRandomKey() [keylength]byte {
+	var key [keylength]byte
+	slice := make([]byte, keylength)
+	rand.Read(slice)
+	copy(key[:], slice)
+	return key
 }
 
-func (m Mastermap) unregister(key string) {
-    lock.Lock()
-    defer lock.Unlock()
-
+func (m *Mastermap) Register(item Net) [keylength]byte {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	for {
+		key := generateRandomKey()
+		if _, ok := m.items[key]; !ok {
+			m.items[key] = item
+			return key
+		}
+	}
 }
-func (m Mastermap) get(name string) Net{
-    lock.Lock()
-    defer lock.Unlock()
-    fmt.Println(name)
-    time.Sleep(1 * time.Second)
-}*/
+
+func (m *Mastermap) Unregister(key [keylength]byte) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	delete(m.items, key)
+}
+
+func (m *Mastermap) Get(key [keylength]byte) (Net, bool) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	net, ok := m.items[key]
+	return net, ok
+}

@@ -36,6 +36,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 func main() {
 	flag.Parse()
 	hub := newHub()
+	mm := NewMastermap()
 	go hub.run()
 	http.HandleFunc("/", serveHello)
 	http.HandleFunc("/home/", serveHome)
@@ -43,10 +44,10 @@ func main() {
 		serveWs(hub, w, r)
 	})
 	http.HandleFunc("/net/", func(w http.ResponseWriter, r *http.Request) {
-		serveNets(w, r)
+		serveNets(mm, w, r)
 	})
 	http.HandleFunc("/net", func(w http.ResponseWriter, r *http.Request) {
-		serveNet(w, r)
+		serveNet(mm, w, r)
 	})
 	err := http.ListenAndServe(*addr, nil)
 	if err != nil {

@@ -84,15 +84,15 @@ func (n *Net) writePump() {
 }
 
 // serveWs handles websocket requests from the peer.
-func serveNet(w http.ResponseWriter, r *http.Request) {
+func serveNet(mastermap *Mastermap, w http.ResponseWriter, r *http.Request) {
 	log.Println("Hello")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	net := &Net{conn: conn, send: make(chan []byte, 256)}
-	//client.hub.register <- client
+	net := Net{conn: conn, send: make(chan []byte, 256)}
+	mastermap.Register(net)
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
@@ -100,7 +100,7 @@ func serveNet(w http.ResponseWriter, r *http.Request) {
 	go net.readPump()
 }
 
-func serveNets(w http.ResponseWriter, r *http.Request) {
+func serveNets(mastermap *Mastermap, w http.ResponseWriter, r *http.Request) {
 	var url = r.RequestURI
 	var data = strings.Split(url, "/")
 	log.Println(data)
