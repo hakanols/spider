@@ -6,6 +6,8 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -21,6 +23,8 @@ type Net struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+
+	register chan websocket.Conn
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -84,15 +88,18 @@ func (n *Net) writePump() {
 }
 
 // serveWs handles websocket requests from the peer.
-func serveNet(mastermap *Mastermap, w http.ResponseWriter, r *http.Request) {
+func serveNet(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
 	log.Println("Hello")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	net := Net{conn: conn, send: make(chan []byte, 256)}
-	mastermap.Register(net)
+	net := &Net{conn: conn, send: make(chan []byte, 256)}
+	key := mm.Register(*net)
+	fmt.Println(key)
+	net.send <- key[:]
+	//client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
@@ -100,13 +107,28 @@ func serveNet(mastermap *Mastermap, w http.ResponseWriter, r *http.Request) {
 	go net.readPump()
 }
 
-func serveNets(mastermap *Mastermap, w http.ResponseWriter, r *http.Request) {
+func serveNets(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
 	var url = r.RequestURI
-	var data = strings.Split(url, "/")
-	log.Println(data)
-	_, err := upgrader.Upgrade(w, r, nil)
+	log.Println(url)
+	var keyString = strings.Split(url, "/")[2]
+	var keySlice, err = hex.DecodeString(keyString)
 	if err != nil {
 		log.Println(err)
 		return
 	}
+	var key [keylength]byte
+	copy(key[:], keySlice)
+	log.Println(key)
+	nav, ok := mm.Get(key)
+	if !ok {
+		log.Println("Can not find key " + keyString )
+		return
+	}
+	log.Println(ok)
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	nav.register <- *conn
 }

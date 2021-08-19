@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"log"
 	"testing"
 	"time"
@@ -38,19 +39,26 @@ func TestBob(t *testing.T) {
 
 func TestBib(t *testing.T) {
 
-	//go main()
+	go main()
 
 	const addr1 = "ws://localhost:8080/net"
 
 	c1, _, err := websocket.DefaultDialer.Dial(addr1, nil)
 	if err != nil {
 		log.Fatal("dial:", err)
-	}
+	}	
 	defer c1.Close()
+	_, message, err := c1.ReadMessage()
+	if err != nil {
+		log.Println("read:", err)
+		return
+	}
+	key := hex.EncodeToString(message)
+	log.Println("key:", key)
 
-	const addr2 = "ws://localhost:8080/net/12"
+	const addr2 = "ws://localhost:8080/net/"
 
-	c2, _, err := websocket.DefaultDialer.Dial(addr2, nil)
+	c2, _, err := websocket.DefaultDialer.Dial(addr2+key, nil)
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
