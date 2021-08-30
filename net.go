@@ -7,13 +7,18 @@ package main
 import (
 	"bytes"
 	"encoding/hex"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
+)
+
+const(
+    messageType byte = 0x0
+	openType = 0x1 
+    closeType = 0x2
 )
 
 // Client is a middleman between the websocket connection and the hub.
@@ -23,8 +28,18 @@ type Net struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+	msend chan []byte
 
-	register chan websocket.Conn
+	register chan *websocket.Conn
+}
+
+func newNet(conn *websocket.Conn) *Net {
+	return &Net{
+		conn: conn,
+		send: make(chan []byte, 256),
+		msend: make(chan []byte, 256),
+		register: make(chan *websocket.Conn),
+	}
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -48,10 +63,11 @@ func (n *Net) readPump() {
 			}
 			break
 		}
-		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		//n.hub.broadcast <- message
+		n.msend <- message
 	}
 }
+
+
 
 // writePump pumps messages from the hub to the websocket connection.
 //
@@ -87,17 +103,98 @@ func (n *Net) writePump() {
 	}
 }
 
+func startReader(connX *websocket.Conn, n *Net, id byte) {
+	defer func() {
+		//c.hub.unregister <- c
+		connX.Close()
+	}()
+	connX.SetReadLimit(maxMessageSize)
+	connX.SetReadDeadline(time.Now().Add(pongWait))
+	connX.SetPongHandler(func(string) error { n.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	for {
+
+		_, message, err := connX.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("error: %v", err)
+			}
+			break
+		}
+        n.send <- createMessageWithData(id, messageType, message)
+	}
+}
+
+func createMessageWithData(id byte, cmd byte, data []byte) []byte {
+	var buf bytes.Buffer
+	buf.WriteByte(id)
+	buf.WriteByte(cmd)
+	buf.Write(data)
+	return buf.Bytes()
+}
+
+func createMessage(id byte, cmd byte) []byte{
+	return []byte {id, cmd}
+}
+
+func (n *Net) run() {
+	var id byte = 0x0 
+	var items = make(map[byte]*websocket.Conn)
+	for {
+		select {
+		case connX := <- n.register:
+			id += 1
+			items[id] = connX
+			n.send <- createMessage(id, openType)
+			go startReader(connX, n, id)
+
+		case message := <- n.msend:
+			buf := bytes.NewBuffer(message)
+			id, err := buf.ReadByte()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			conn, ok := items[id]
+			if !ok {
+				log.Println("Item missing: " + string(id))
+				return
+			}
+			cmd, err := buf.ReadByte()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			switch cmd {
+				case messageType:
+					data := make([]byte, 255)
+					len, err := buf.Read(data)
+					data = data[:len]
+					if err != nil {
+						log.Println(err)
+						return
+					}
+					err = conn.WriteMessage(websocket.BinaryMessage, data)
+					if err != nil {
+						return
+					}
+
+				default: 
+					log.Println("Unknown byte: " + string(cmd))
+			}
+		}
+	}
+}
+
 // serveWs handles websocket requests from the peer.
 func serveNet(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
-	log.Println("Hello")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	net := &Net{conn: conn, send: make(chan []byte, 256)}
+	net := newNet(conn)
+    go net.run()
 	key := mm.Register(*net)
-	fmt.Println(key)
 	net.send <- key[:]
 	//client.hub.register <- client
 
@@ -109,7 +206,6 @@ func serveNet(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
 
 func serveNets(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
 	var url = r.RequestURI
-	log.Println(url)
 	var keyString = strings.Split(url, "/")[2]
 	var keySlice, err = hex.DecodeString(keyString)
 	if err != nil {
@@ -118,17 +214,15 @@ func serveNets(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
 	}
 	var key [keylength]byte
 	copy(key[:], keySlice)
-	log.Println(key)
 	nav, ok := mm.Get(key)
 	if !ok {
 		log.Println("Can not find key " + keyString )
 		return
 	}
-	log.Println(ok)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	nav.register <- *conn
+	nav.register <- conn
 }

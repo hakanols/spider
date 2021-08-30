@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"log"
 	"testing"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -41,9 +40,9 @@ func TestBib(t *testing.T) {
 
 	go main()
 
-	const addr1 = "ws://localhost:8080/net"
+	const addr = "ws://localhost:8080/net"
 
-	c1, _, err := websocket.DefaultDialer.Dial(addr1, nil)
+	c1, _, err := websocket.DefaultDialer.Dial(addr, nil)
 	if err != nil {
 		log.Fatal("dial:", err)
 	}	
@@ -56,17 +55,39 @@ func TestBib(t *testing.T) {
 	key := hex.EncodeToString(message)
 	log.Println("key:", key)
 
-	const addr2 = "ws://localhost:8080/net/"
-
-	c2, _, err := websocket.DefaultDialer.Dial(addr2+key, nil)
+	c2, _, err := websocket.DefaultDialer.Dial(addr+"/"+key, nil)
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
 	defer c2.Close()
 
-	time.Sleep(2 * time.Second)
+	var data = []byte("Hello mr scientist")
+	err = c2.WriteMessage(websocket.BinaryMessage, data)
 
-	assert.Equal(t, "dummy", "dimmy", "Bytes do not match")
+	const id = 1
+	_, message, err = c1.ReadMessage()
+	if err != nil {
+		log.Println("read:", err)
+		return
+	}
+	assert.Equal(t, []byte{id,openType}, message, "Bytes do not match")
+
+	_, message, err = c1.ReadMessage()
+	if err != nil {
+		log.Println("read:", err)
+		return
+	}
+	assert.Equal(t, append([]byte{id,messageType}, data...), message, "Bytes do not match")
+
+	var data2 = []byte("Hawksnumber")
+	err = c1.WriteMessage(websocket.BinaryMessage, append([]byte{id,messageType}, data2...))
+
+	_, message, err = c2.ReadMessage()
+	if err != nil {
+		log.Println("read:", err)
+		return
+	}
+	assert.Equal(t, data2, message, "Bytes do not match")
 }
 
 func TestMasterMap(t *testing.T) {
