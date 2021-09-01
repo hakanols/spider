@@ -6,47 +6,48 @@ import (
 	"time"
 )
 
-const keylength = 8
-
 type Mastermap struct {
 	lock sync.Mutex
-	items map[[keylength]byte]Net
+	items map[string]interface{}
+	keyLen byte
 }
 
-func NewMastermap() *Mastermap {
+func NewMastermap(keyLen byte) *Mastermap {
 	rand.Seed(time.Now().UnixNano())
-	return &Mastermap{items: make(map[[keylength]byte]Net)}
+	
+	return &Mastermap{
+		items: make(map[string]interface{}),
+		keyLen: keyLen,
+	}
 }
 
-func generateRandomKey() [keylength]byte {
-	var key [keylength]byte
-	slice := make([]byte, keylength)
-	rand.Read(slice)
-	copy(key[:], slice)
+func generateRandomKey(keyLen byte) []byte {
+	key := make([]byte, keyLen)
+	rand.Read(key)
 	return key
 }
 
-func (m *Mastermap) Register(item Net) [keylength]byte {
+func (m *Mastermap) Register(item interface{}) []byte {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	for {
-		key := generateRandomKey()
-		if _, ok := m.items[key]; !ok {
-			m.items[key] = item
+	for { // ToDo: Smarter and more detrmenistic way to find free key
+		key := generateRandomKey(m.keyLen)
+		if _, ok := m.items[string(key)]; !ok {
+			m.items[string(key)] = item
 			return key
 		}
 	}
 }
 
-func (m *Mastermap) Unregister(key [keylength]byte) {
+func (m *Mastermap) Unregister(key []byte) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	delete(m.items, key)
+	delete(m.items, string(key))
 }
 
-func (m *Mastermap) Get(key [keylength]byte) (Net, bool) {
+func (m *Mastermap) Get(key []byte) (interface{}, bool) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	net, ok := m.items[key]
+	net, ok := m.items[string(key)]
 	return net, ok
 }

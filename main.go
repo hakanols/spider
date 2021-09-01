@@ -36,7 +36,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 func main() {
 	flag.Parse()
 	hub := newHub()
-	mm := NewMastermap()
+	mm := NewMastermap(4)
 	go hub.run()
 	http.HandleFunc("/", serveHello)
 	http.HandleFunc("/home/", serveHome)

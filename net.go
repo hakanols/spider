@@ -11,20 +11,20 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const(
-    messageType byte = 0x0
-	openType = 0x1 
-    closeType = 0x2
+const (
+	messageType byte = 0
+	openType         = 1
+	closeType        = 2
 )
 
 type Net struct {
-	register chan *websocket.Conn
+	register   chan *websocket.Conn
 	unregister chan byte
 }
 
 func newNet() *Net {
 	return &Net{
-		register: make(chan *websocket.Conn),
+		register:   make(chan *websocket.Conn),
 		unregister: make(chan byte),
 	}
 }
@@ -37,8 +37,8 @@ func createMessageWithData(id byte, cmd byte, data []byte) []byte {
 	return buf.Bytes()
 }
 
-func createMessage(id byte, cmd byte) []byte{
-	return []byte {id, cmd}
+func createMessage(id byte, cmd byte) []byte {
+	return []byte{id, cmd}
 }
 
 func writePump(conn *websocket.Conn, channel chan []byte) {
@@ -70,7 +70,7 @@ func writePump(conn *websocket.Conn, channel chan []byte) {
 	}
 }
 
-func hostReadPump(conn *websocket.Conn, clientList map[byte]chan []byte) {
+func hostReadPump(conn *websocket.Conn, clientList *Mastermap) {
 	defer func() {
 		conn.Close()
 	}()
@@ -92,9 +92,14 @@ func hostReadPump(conn *websocket.Conn, clientList map[byte]chan []byte) {
 			log.Println(err)
 			return
 		}
-		clientChannel, ok := clientList[id]
+		item, ok := clientList.Get([]byte{id})
 		if !ok {
 			log.Println("Item missing: " + string(id))
+			return
+		}
+		clientChannel, ok := item.(chan []byte)
+		if !ok {
+			log.Println("Not a Net object")
 			return
 		}
 		cmd, err := buf.ReadByte()
@@ -103,18 +108,18 @@ func hostReadPump(conn *websocket.Conn, clientList map[byte]chan []byte) {
 			return
 		}
 		switch cmd {
-			case messageType:
-				data := make([]byte, 255)
-				len, err := buf.Read(data)
-				data = data[:len]
-				if err != nil {
-					log.Println(err)
-					return
-				}
-				clientChannel <- data
+		case messageType:
+			data := make([]byte, 255)
+			len, err := buf.Read(data)
+			data = data[:len]
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			clientChannel <- data
 
-			default: 
-				log.Println("Unknown byte: " + string(cmd))
+		default:
+			log.Println("Unknown byte: " + string(cmd))
 		}
 	}
 }
@@ -136,13 +141,13 @@ func clientReadPump(conn *websocket.Conn, toHostChannel chan []byte, id byte, ne
 			}
 			break
 		}
-        toHostChannel <- createMessageWithData(id, messageType, message)
+		toHostChannel <- createMessageWithData(id, messageType, message)
 	}
 }
 
 func runHost(hostConn *websocket.Conn, mm *Mastermap) {
-	var clientList = make(map[byte]chan []byte) // ToDo: Make thread safe
-	var toHostChannel = make(chan []byte, 256)
+	clientList := NewMastermap(1)
+	toHostChannel := make(chan []byte, 256)
 
 	go writePump(hostConn, toHostChannel)
 	go hostReadPump(hostConn, clientList)
@@ -150,21 +155,20 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 	net := newNet()
 	key := mm.Register(*net)
 	toHostChannel <- key[:]
-	var id byte = 0x0 
 
 	for {
 		select {
-		case clientConn := <- net.register:
-			id += 1
-			var toClientChannel = make(chan []byte, 256)
-			clientList[id] = toClientChannel
-			toHostChannel <- createMessage(id, openType)
-			go clientReadPump(clientConn, toHostChannel, id, net)
+		case clientConn := <-net.register:
+			toClientChannel := make(chan []byte, 256)
+			id := clientList.Register(toClientChannel)
+			log.Println(id)
+			toHostChannel <- createMessage(id[0], openType)
+			go clientReadPump(clientConn, toHostChannel, id[0], net)
 			go writePump(clientConn, toClientChannel)
 
-		case id := <- net.unregister:
+		case id := <-net.unregister:
 			toHostChannel <- createMessage(id, closeType)
-			delete(clientList, id)
+			clientList.Unregister([]byte{id})
 		}
 	}
 }
@@ -176,22 +180,25 @@ func serveNet(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    go runHost(conn, mm)
+	go runHost(conn, mm)
 }
 
 func serveNets(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
-	var url = r.RequestURI
-	var keyString = strings.Split(url, "/")[2]
-	var keySlice, err = hex.DecodeString(keyString)
+	url := r.RequestURI
+	keyString := strings.Split(url, "/")[2]
+	key, err := hex.DecodeString(keyString)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	var key [keylength]byte
-	copy(key[:], keySlice)
-	nav, ok := mm.Get(key)
+	item, ok := mm.Get(key)
 	if !ok {
-		log.Println("Can not find key " + keyString )
+		log.Println("Can not find key " + keyString)
+		return
+	}
+	nav, ok := item.(Net)
+	if !ok {
+		log.Println("Not a Net object")
 		return
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)

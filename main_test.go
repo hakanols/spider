@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"log"
 	"testing"
+	"bytes"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -12,26 +13,18 @@ import (
 func TestBob(t *testing.T) {
 	go main()
 
-	const addr = "ws://localhost:8080/ws"
-	var data = []byte("Hello mr scientist")
+	addr := "ws://localhost:8080/ws"
+	data := []byte("Hello mr scientist")
 
 	c, _, err := websocket.DefaultDialer.Dial(addr, nil)
-	if err != nil {
-		log.Fatal("dial:", err)
-	}
+	assert.Nil(t, err, "Got error")
 	defer c.Close()
 
 	err = c.WriteMessage(websocket.BinaryMessage, data)
-	if err != nil {
-		log.Println("write:", err)
-		return
-	}
+	assert.Nil(t, err, "Got error")
 
 	_, message, err := c.ReadMessage()
-	if err != nil {
-		log.Println("read:", err)
-		return
-	}
+	assert.Nil(t, err, "Got error")
 
 	assert.Equal(t, data, message, "Bytes do not match")
 }
@@ -43,71 +36,58 @@ func TestBib(t *testing.T) {
 	const addr = "ws://localhost:8080/net"
 
 	hostConn, _, err := websocket.DefaultDialer.Dial(addr, nil)
-	if err != nil {
-		log.Fatal("dial:", err)
-	}	
+	assert.Nil(t, err, "Got error")
 	defer hostConn.Close()
+
 	_, message, err := hostConn.ReadMessage()
-	if err != nil {
-		log.Println("read:", err)
-		return
-	}
+	assert.Nil(t, err, "Got error")
 	key := hex.EncodeToString(message)
-	log.Println("key:", key)
+	log.Println("Key:", key)
 
 	clientConn, _, err := websocket.DefaultDialer.Dial(addr+"/"+key, nil)
-	if err != nil {
-		log.Fatal("dial:", err)
-	}
+	assert.Nil(t, err, "Got error")
 	defer clientConn.Close()
 
 	var data = []byte("Hello mr scientist")
 	err = clientConn.WriteMessage(websocket.BinaryMessage, data)
 
-	const id = 1
 	_, message, err = hostConn.ReadMessage()
-	if err != nil {
-		log.Println("read:", err)
-		return
-	}
-	assert.Equal(t, []byte{id,openType}, message, "Bytes do not match")
+	assert.Nil(t, err, "Got error")
+	buf := bytes.NewBuffer(message)
+	id, err := buf.ReadByte()
+	assert.Nil(t, err, "Got error")
+	cmd, err := buf.ReadByte()
+	assert.Nil(t, err, "Got error")
+	assert.Equal(t, byte(openType), cmd, "Byte do not match")
 
 	_, message, err = hostConn.ReadMessage()
-	if err != nil {
-		log.Println("read:", err)
-		return
-	}
-	assert.Equal(t, append([]byte{id,messageType}, data...), message, "Bytes do not match")
+	assert.Nil(t, err, "Got error")
+	assert.Equal(t, append([]byte{id, messageType}, data...), message, "Bytes do not match")
 
 	var data2 = []byte("Hawksnumber")
-	err = hostConn.WriteMessage(websocket.BinaryMessage, append([]byte{id,messageType}, data2...))
+	err = hostConn.WriteMessage(websocket.BinaryMessage, append([]byte{id, messageType}, data2...))
 
 	_, message, err = clientConn.ReadMessage()
-	if err != nil {
-		log.Println("read:", err)
-		return
-	}
+	assert.Nil(t, err, "Got error")
 	assert.Equal(t, data2, message, "Bytes do not match")
 
 	clientConn.Close()
 	_, message, err = hostConn.ReadMessage()
-	if err != nil {
-		log.Println("read:", err)
-		return
-	}
-	assert.Equal(t, []byte{id,closeType}, message, "Bytes do not match")
+	assert.Nil(t, err, "Got error")
+	assert.Equal(t, []byte{id, closeType}, message, "Bytes do not match")
 }
 
 func TestMasterMap(t *testing.T) {
-	goggi := NewMastermap()
-	randKey := generateRandomKey()
+	goggi := NewMastermap(8)
+	randKey := generateRandomKey(8)
 	_, ok := goggi.Get(randKey)
 	assert.False(t, ok, "No item with that key")
 
-	item := Net{}
+	item := newNet()
 	goodKey := goggi.Register(item)
-	_, ok = goggi.Get(goodKey)
+	result, ok := goggi.Get(goodKey)
 	assert.True(t, ok, "Item with that key should exist")
+	assert.Equal(t, item, result, "Not the same item")
 
 	goggi.Unregister(goodKey)
 	_, ok = goggi.Get(goodKey)
