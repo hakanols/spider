@@ -42,12 +42,12 @@ func TestBib(t *testing.T) {
 
 	const addr = "ws://localhost:8080/net"
 
-	c1, _, err := websocket.DefaultDialer.Dial(addr, nil)
+	hostConn, _, err := websocket.DefaultDialer.Dial(addr, nil)
 	if err != nil {
 		log.Fatal("dial:", err)
 	}	
-	defer c1.Close()
-	_, message, err := c1.ReadMessage()
+	defer hostConn.Close()
+	_, message, err := hostConn.ReadMessage()
 	if err != nil {
 		log.Println("read:", err)
 		return
@@ -55,24 +55,24 @@ func TestBib(t *testing.T) {
 	key := hex.EncodeToString(message)
 	log.Println("key:", key)
 
-	c2, _, err := websocket.DefaultDialer.Dial(addr+"/"+key, nil)
+	clientConn, _, err := websocket.DefaultDialer.Dial(addr+"/"+key, nil)
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
-	defer c2.Close()
+	defer clientConn.Close()
 
 	var data = []byte("Hello mr scientist")
-	err = c2.WriteMessage(websocket.BinaryMessage, data)
+	err = clientConn.WriteMessage(websocket.BinaryMessage, data)
 
 	const id = 1
-	_, message, err = c1.ReadMessage()
+	_, message, err = hostConn.ReadMessage()
 	if err != nil {
 		log.Println("read:", err)
 		return
 	}
 	assert.Equal(t, []byte{id,openType}, message, "Bytes do not match")
 
-	_, message, err = c1.ReadMessage()
+	_, message, err = hostConn.ReadMessage()
 	if err != nil {
 		log.Println("read:", err)
 		return
@@ -80,14 +80,22 @@ func TestBib(t *testing.T) {
 	assert.Equal(t, append([]byte{id,messageType}, data...), message, "Bytes do not match")
 
 	var data2 = []byte("Hawksnumber")
-	err = c1.WriteMessage(websocket.BinaryMessage, append([]byte{id,messageType}, data2...))
+	err = hostConn.WriteMessage(websocket.BinaryMessage, append([]byte{id,messageType}, data2...))
 
-	_, message, err = c2.ReadMessage()
+	_, message, err = clientConn.ReadMessage()
 	if err != nil {
 		log.Println("read:", err)
 		return
 	}
 	assert.Equal(t, data2, message, "Bytes do not match")
+
+	clientConn.Close()
+	_, message, err = hostConn.ReadMessage()
+	if err != nil {
+		log.Println("read:", err)
+		return
+	}
+	assert.Equal(t, []byte{id,closeType}, message, "Bytes do not match")
 }
 
 func TestMasterMap(t *testing.T) {
