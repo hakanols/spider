@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <title>Chat Example</title>
-<script type="text/javascript">
+<script type="module">
 window.onload = function () {
     var conn;
     var msg = document.getElementById("msg");
     var log = document.getElementById("log");
+    const serverAddress = "wss://spider-8t2d6.ondigitalocean.app/ws";
 
     function appendLog(item) {
         var doScroll = log.scrollTop > log.scrollHeight - log.clientHeight - 1;
@@ -29,7 +30,7 @@ window.onload = function () {
     };
 
     if (window["WebSocket"]) {
-        conn = new WebSocket("wss://spider-8t2d6.ondigitalocean.app/ws");
+        conn = new WebSocket(serverAddress);
         conn.onclose = function (evt) {
             var item = document.createElement("div");
             item.innerHTML = "<b>Connection closed.</b>";
@@ -41,8 +42,7 @@ window.onload = function () {
                 var item = document.createElement("div");
                 item.innerText = messages[i];
                 appendLog(item);
-            }
-        };
+            }        };
     } else {
         var item = document.createElement("div");
         item.innerHTML = "<b>Your browser does not support WebSockets.</b>";

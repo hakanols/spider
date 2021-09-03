@@ -14,3 +14,5 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 .vscode/launch.json
+/clien-js/node_modules
+/clien-js/package-lock.json

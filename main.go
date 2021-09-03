@@ -49,6 +49,7 @@ func main() {
 	http.HandleFunc("/net", func(w http.ResponseWriter, r *http.Request) {
 		serveNet(mm, w, r)
 	})
+	log.Println("Starting on http://localhost:8080/")
 	err := http.ListenAndServe(*addr, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)

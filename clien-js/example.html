@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>WebBLE</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+        <!-- Latest compiled and minified CSS -->
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+
+        <script src="./lib/nacl-fast.js"></script>
+        <script type="module">
+            import * as glue from "./src/glue.js";
+            import * as BleSocket from './src/blesocket.js';
+            import {BleScanner, WebBridgeScanner, DeviceOrigin} from "./src/scan.js";
+            import WebBridgeForwarder from "./src/forward.js";
+
+            const SCANNER_WS_PORT = 8080;
+            const FORWARDER_WS_PORT = 2034;
+            let glueConnection;
+            let scanControl;
+
+            console.log("Hello my friend");
+
+            function connectToDevice(device) {
+                console.log("connectToDevice: " + device.name);
+                connectionState("Connecting");
+
+                if (device.origin === DeviceOrigin.WEB_BRIDGE) {
+                    prepareWebBridge(device)
+                        .then(connectToLocalhost)
+                        .catch(() => {
+                            connectionState("Error!");
+                        })
+                } else {
+                    glue.connectToDevice(device)
+                        .then((session) =>{
+                        glueConnection = session;
+                        connectionState("Connected");
+                        glueConnection.onDisconnect = function(){
+                            connectionState("Disconnected");
+                        }
+                    });
+                }
+            }
+
+            async function prepareWebBridge(device) {
+                console.log(device);
+                let forwarder = new WebBridgeForwarder(getScannerAddress());
+                await forwarder.forward(device.address);
+                console.log("Device forwarder ready, should now listen on " + getForwarderAddress());
+
+                forwarder.stop();
+            }
+
+            window.connectToBle = function () {
+                console.log("connectToBle");
+                let filterOptions = BleSocket.createFilterOptions('AA ');
+                navigator.bluetooth.requestDevice(filterOptions)
+                    .then((device) => connectToDevice(device));
+            };
+
+            window.connectToLocalhost = function () {
+                console.log("connectToLocalhost");
+                connectionState("Connecting");
+                glue.connectToUri(getForwarderAddress())
+                    .then( (session)=>{
+                        glueConnection = session;
+                        connectionState("Connected");
+                        glueConnection.onDisconnect = function(){
+                            connectionState("Disconnected");
+                        }
+                    })
+                    .catch(()=>{
+                        window.alert("Connection failed!\nStart websocket server with:\n" +
+                            "java -cp browsable.jar;pot.jar pot.browsable.BrowsableThing");
+                    });
+            };
+
+            window.callTwoAsynchronously = function() {
+                console.log("callTwoAsynchronously");
+                if (glueConnection === undefined ){
+                    console.log("CANTCO");
+                    return
+                }
+                glueConnection.getMeta()
+                    .then(()=>console.log("Done getMeta"));
+
+                glueConnection.getObjects()
+                    .then(()=>console.log("Done getObjects"));
+            };
+
+            window.doStuff = function () {
+                console.log("doStuff");
+                if (glueConnection === undefined ){
+                    console.log("CANTCO");
+                    return
+                }
+
+                glueConnection.getObjects()
+                    .then((res)=>console.log(res.toJson()));
+
+                glueConnection.getInfo()
+                    .then((res)=>console.log(res));
+            };
+
+            window.claim = function () {
+                console.log("claim");
+                if (glueConnection === undefined ){
+                    console.log("CANTCO");
+                    return
+                }
+
+                glueConnection.claim("Mr Master")
+                    .then(()=>console.log("Done"));
+            };
+
+            window.getPage = function () {
+                console.log("getPage");
+                if (glueConnection === undefined ){
+                    console.log("CANTCO");
+                    return
+                }
+
+                glueConnection.getPage("P4")
+                    .then((res)=>console.log(res.toJson()));
+            };
+
+            window.setValue = function () {
+                console.log("setValue");
+                if (glueConnection === undefined ){
+                    console.log("CANTCO");
+                    return
+                }
+
+                glueConnection.setValue(1, 3)
+                    .then();
+            };
+
+            window.getValues = function () {
+                console.log("getValues");
+                if (glueConnection === undefined ){
+                    console.log("CANTCO");
+                    return
+                }
+
+                glueConnection.getValues([1, 2, 3])
+                    .then((res)=>console.log(res));
+            };
+
+            window.setOnValueChanged = function () {
+                console.log("setListener");
+                if (glueConnection === undefined ){
+                    console.log("CANTCO");
+                    return
+                }
+
+                glueConnection.setOnValueChanged(function(id, value){
+                    console.log("Example.html got event with id ",id," and value ",value)
+                }).then();
+            };
+
+            window.disconnect = function() {
+                console.log("close");
+                glueConnection.close();
+            };
+
+            window.startBleScan = function () {
+                let scanner = new BleScanner(updateScanResult);
+                startScan(scanner);
+            };
+
+            window.startWbScan = function () {
+                let scanner = new WebBridgeScanner(getScannerAddress(), updateScanResult);
+                startScan(scanner);
+            };
+
+            function startScan(scanner) {
+                console.log("startScan");
+                if (scanControl !== null && scanControl !== undefined && scanControl.active) {
+                    console.log("Scan already running");
+                    return
+                }
+
+                scanner.scan()
+                    .then(function(scannerOutput) {
+                        scanControl = scannerOutput;
+                    });
+            }
+
+            window.stopScan = function() {
+                console.log("stopScan");
+                if (scanControl === null || scanControl === undefined){
+                    console.log("scanner already disabled");
+                } else {
+                    scanControl.stop();
+                    scanControl = null;
+                }
+            };
+
+            function updateScanResult(key, device, claimed, rssi, state) {
+                function createTextColumn(text) {
+                    let column = document.createElement("div");
+                    column.setAttribute("class", "col-md-2");
+                    let innerText = document.createTextNode(text);
+                    column.appendChild(innerText);
+                    return column;
+                }
+
+                function createButtonColumn(text, callback) {
+                    let column = document.createElement("div");
+                    column.setAttribute("class", "col-md-2");
+                    let connectButton = document.createElement("button");
+                    connectButton.innerHTML = text;
+                    connectButton.setAttribute("class", "btn btn-primary btn-sm");
+                    connectButton.addEventListener ("click", callback);
+                    column.appendChild(connectButton);
+                    return column;
+                }
+
+                let view = document.getElementById(key);
+                if (view === null) {
+                    let parentView = document.getElementById('hawks_gryta');
+                    view = document.createElement("div");
+                    view.setAttribute("class", "row");
+                    view.setAttribute("id", key);
+                    parentView.appendChild(view);
+                }
+
+                view.innerHTML = "";
+                let col1Div = createTextColumn(key);
+                view.appendChild(col1Div);
+
+                let col2Div = createTextColumn(claimed);
+                view.appendChild(col2Div);
+
+                let col3Div = createTextColumn(rssi);
+                view.appendChild(col3Div);
+
+                let col4Div = createTextColumn(state);
+                view.appendChild(col4Div);
+
+                let col5Div = createButtonColumn("Connect", function() {
+                    connectToDevice(device);
+                });
+                view.appendChild(col5Div);
+            }
+
+            function setupBluetoothAvailability() {
+                BleSocket.listenToBluetoothAvailability((bluetoothAvailability) => {
+                    let state = Object.keys(BleSocket.BluetoothAvailability)[bluetoothAvailability];
+                    let view = document.getElementById("bluetooth_availability");
+                    view.innerHTML = "Bluetooth state: " + state;
+                }).then();
+            }
+            setupBluetoothAvailability();
+
+            function connectionState(state) {
+                let view = document.getElementById("bluetooth_connection");
+                view.innerHTML = "Connection: " + state;
+            }
+            connectionState("Disconnected");
+
+            function getForwarderAddress() {
+                return getAddress(FORWARDER_WS_PORT);
+            }
+
+            function getScannerAddress() {
+                return getAddress(SCANNER_WS_PORT);
+            }
+
+            function getAddress(port) {
+                return "ws://" + document.getElementById('ip').value + ":" + port;
+            }
+
+            function showTab(ble, bridge, console) {
+
+                function showTab(tabElementId, contentElementId) {
+                    document.getElementById(contentElementId).classList.remove("hidden");
+                    document.getElementById(tabElementId).classList.add("active");
+                }
+
+                function hideTab(tabElementId, contentElementId) {
+                    document.getElementById(contentElementId).classList.add("hidden");
+                    document.getElementById(tabElementId).classList.remove("active");
+                }
+
+                function showBleTab() {
+                    showTab("web_ble_tab", "web_ble_content");
+                }
+
+                function hideBleTab() {
+                    hideTab("web_ble_tab", "web_ble_content");
+                }
+
+                function showBridgeTab() {
+                    showTab("web_socket_tab", "web_socket_content");
+                }
+
+                function hideBridgeTab() {
+                    hideTab("web_socket_tab", "web_socket_content");
+                }
+
+                function showConsoleTab() {
+                    showTab("console_tab", "console_content");
+                }
+
+                function hideConsoleTab() {
+                    hideTab("console_tab", "console_content");
+                }
+
+                function showScan() {
+                    document.getElementById("scan_content").classList.remove("hidden");
+                }
+
+                function hideScan() {
+                    document.getElementById("scan_content").classList.add("hidden");
+                }
+
+                if (ble) {
+                    showBleTab();
+                } else {
+                    hideBleTab();
+                }
+
+                if (bridge) {
+                    showBridgeTab();
+                } else {
+                    hideBridgeTab();
+                }
+
+                if (console) {
+                    showConsoleTab();
+                    hideScan();
+                } else {
+                    hideConsoleTab();
+                    showScan();
+                }
+            }
+
+            window.showWebBLE = function() {
+                showTab(true, false, false);
+            };
+
+            window.showWsBridge = function() {
+                showTab(false, true, false);
+            };
+
+            window.showConsole = function() {
+                showTab(false, false, true);
+            };
+
+            function putConsoleToDiv(elementId) {
+                if (typeof console != "undefined")
+                    if (typeof console.log != 'undefined')
+                        console.olog = console.log;
+                    else
+                        console.olog = function () {
+                        };
+
+                console.log = function (message) {
+                    console.olog(message);
+
+                    let consoleDiv = document.getElementById(elementId);
+                    let logLineDiv = document.createElement("div");
+                    let logLine = document.createElement("p");
+                    logLine.setAttribute("style", "font-family:monospace;");
+                    logLine.innerText = JSON.stringify(message);
+                    logLineDiv.appendChild(logLine);
+                    consoleDiv.prepend(logLineDiv);
+
+                    if (consoleDiv.childElementCount > 50) {
+                        consoleDiv.removeChild(consoleDiv.childNodes[50]);
+                    }
+                };
+                console.error = console.debug = console.info = console.log;
+            }
+
+            putConsoleToDiv("console_content");
+        </script>
+
+        <style>
+            .section {
+                margin-top: 30px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container-fluid">
+
+            <div class="jumbotron">
+                <h1>Web BLE</h1>
+                <p>Web BLE and Web-socket bridge testing playground.</p>
+            </div>
+
+            <h3><span id="bluetooth_connection" class="badge badge-secondary"></span>&nbsp;<span id="bluetooth_availability" class="badge badge-secondary"></span></h3>
+
+            <ul class="nav nav-tabs" role="tablist">
+                <li id="web_ble_tab" class="active"><a href="#" onclick="showWebBLE()">Web BLE</a></li>
+                <li id="web_socket_tab"><a href="#" onclick="showWsBridge()">Web socket bridge</a></li>
+                <li id="console_tab"><a href="#" onclick="showConsole()">Console</a></li>
+            </ul>
+
+            <div id="web_ble_content">
+                <div class="section">
+                    <h4>Communication</h4>
+                    <button type="button" class="btn btn-primary" onclick="connectToBle()">Connect to BLE</button>
+                    <button type="button" class="btn btn btn-danger" onclick="disconnect()">Disconnect</button>
+                </div>
+
+                <div class="section">
+                    <h4>Conversations</h4>
+                    <button type="button" class="btn btn btn-secondary" onclick="callTwoAsynchronously()">Call two asynchronously</button>
+                    <button type="button" class="btn btn btn-secondary" onclick="doStuff()">Do Stuff</button>
+                    <button type="button" class="btn btn btn-secondary" onclick="claim()">Claim</button>
+                    <button type="button" class="btn btn btn-secondary" onclick="getPage()">Get page</button>
+                    <button type="button" class="btn btn btn-secondary" onclick="setValue()">Set value</button>
+                    <button type="button" class="btn btn btn-secondary" onclick="getValues()">Get values</button>
+                    <button type="button" class="btn btn btn-secondary" onclick="setOnValueChanged()">Set on value changed</button>
+                </div>
+
+                <div class="section">
+                    <h4>Scanning</h4>
+                    <h5>Only enabled on Chrome dev</h5>
+                    <button type="button" onclick="startBleScan()" class="btn btn-primary">Start</button>
+                    <button type="button" onclick="stopScan()" class="btn btn btn-danger">Stop</button>
+                </div>
+            </div>
+
+            <div id="web_socket_content" class="hidden">
+                <div class="section">
+                    <h4>Communication</h4>
+                    <div class="form-group">
+                        <label for="ip">Web bridge/scanner IP address</label>
+                        <input type="text" class="form-control" id="ip" aria-describedby="emailHelp" placeholder="192.168.x.x" value="192.168.">
+                        <small id="emailHelp" class="form-text text-muted">The port is 8080, remember to enable mixed content in browser.</small><br>
+                        <small id="testServerHelp" class="form-text text-muted">Run test server from terminal with: java -cp browsable.jar;pot.jar pot.browsable.BrowsableThing</small>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="connectToLocalhost()">URL Direct connect (Testing)</button>
+                    <button type="button" class="btn btn btn-danger" onclick="disconnect()">Disconnect</button>
+                </div>
+
+
+                <div class="section">
+                    <h4>Conversations</h4>
+                    <button type="button" class="btn btn btn-secondary" onclick="doStuff()">Do Stuff</button>
+                    <button type="button" class="btn btn btn-secondary" onclick="claim()">Claim</button>
+                    <button type="button" class="btn btn btn-secondary" onclick="getPage()">Get page</button>
+                    <button type="button" class="btn btn btn-secondary" onclick="setValue()">Set value</button>
+                    <button type="button" class="btn btn btn-secondary" onclick="getValues()">Get values</button>
+                    <button type="button" class="btn btn btn-secondary" onclick="setOnValueChanged()">Set on value changed</button>
+                </div>
+
+                <div class="section">
+                    <h4>Scanning</h4>
+                    <button type="button" onclick="startWbScan()" class="btn btn-primary">Start</button>
+                    <button type="button" onclick="stopScan()" class="btn btn btn-danger">Stop</button>
+                </div>
+            </div>
+
+            <div id="scan_content" class="section">
+                <h4>Scan result</h4>
+                <div class="container-fluid" id="hawks_gryta"> <!-- If Needed Left and Right Padding in 'md' and 'lg' screen means use container class -->
+                    <div class="row">
+                        <div class="col-md-2">
+                            <strong>Key</strong>
+                        </div>
+                        <div class="col-md-2">
+                            <strong>Claimed</strong>
+                        </div>
+                        <div class="col-md-2">
+                            <strong>RSSI</strong>
+                        </div>
+                        <div class="col-md-2">
+                            <strong>State</strong>
+                        </div>
+                        <div class="col-md-2">
+                            <strong>Action</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="console_content"></div>
+        </div>
+    </body>
+</html>
