@@ -3,7 +3,10 @@ import * as util from './../lib/util.js';
 
 const test = typeof module !== 'undefined' && module.exports ? require('./tape.js') : self.test;
 
-const testServerUri = "ws://localhost:8080/net";
+const isLocalhost = typeof location == 'undefined' || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+const onlieServer = "wss://spider-8t2d6.ondigitalocean.app/net";
+const localServer = "ws://localhost:8080/net";
+const testServerUri = ( isLocalhost ? localServer : onlieServer );
 
 function createEventCounter() {
 	let events = [];

@@ -14,35 +14,15 @@ var addr = flag.String("addr", ":8080", "http service address")
 
 func serveHello(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL)
-	data := []byte("Hello World!") // slice of bytes
+	data := []byte("I am alive!")
 	w.Write(data)
-}
-
-func serveHome(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.URL)
-	log.Println("Home town")
-
-	if r.URL.Path != "/home/" {
-		http.Error(w, "Not found", http.StatusNotFound)
-		return
-	}
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	http.ServeFile(w, r, "home.html")
 }
 
 func main() {
 	flag.Parse()
-	hub := newHub()
 	mm := NewMastermap(4)
-	go hub.run()
 	http.HandleFunc("/", serveHello)
-	http.HandleFunc("/home/", serveHome)
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(hub, w, r)
-	})
+
 	http.HandleFunc("/net/", func(w http.ResponseWriter, r *http.Request) {
 		serveNets(mm, w, r)
 	})

@@ -10,25 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBob(t *testing.T) {
-	go main()
-
-	addr := "ws://localhost:8080/ws"
-	data := []byte("Hello mr scientist")
-
-	c, _, err := websocket.DefaultDialer.Dial(addr, nil)
-	assert.Nil(t, err, "Got error")
-	defer c.Close()
-
-	err = c.WriteMessage(websocket.BinaryMessage, data)
-	assert.Nil(t, err, "Got error")
-
-	_, message, err := c.ReadMessage()
-	assert.Nil(t, err, "Got error")
-
-	assert.Equal(t, data, message, "Bytes do not match")
-}
-
 func TestBib(t *testing.T) {
 
 	go main()
