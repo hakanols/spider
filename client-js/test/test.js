@@ -25,28 +25,48 @@ function createEventCounter() {
 	}
 }
 
-test('Is a browsable running', async function (t) {
+test('Is a spider running', async function (t) {
 	const whatToDo = 'Run from terminal: go run .';
+	t.comment(testServerUri);
 	try {
 		let conn = await spiderSocket.connectToUri(testServerUri);
 		util.waitForClose(conn);
 	}
 	catch (e) {
-		console.error("Got error: " + e);
+		t.fail("Got error: " + e);
 		throw "No websocket running. "+e
 	}
+	t.end();
+});
+
+test('Test async timeout', async function (t) {
+	await util.runWithTimeout(util.sleep(10), 20);
+	try {
+		await util.runWithTimeout(util.sleep(20), 10);
+		t.fail("Sholud never be reached");
+	}
+	catch{}
 
 	t.end();
 });
 
-test('Connect to localhost', async function (t) {
+test('Test spider', async function (t) {
 	let hostConn = await spiderSocket.connectToUri(testServerUri);
-	let m1 = await util.socketReader(hostConn);
+	let m1;
+	try {
+		m1 = await util.socketReader(hostConn);
+		t.comment(m1);
+	} catch (error) {
+		t.fail("No m1");
+	}
 	let clientAddress = testServerUri + '/' + util.ab2hex(m1);
-	console.log(clientAddress);
 	let clientConn = await spiderSocket.connectToUri(clientAddress);
-	let m2 = await util.socketReader(hostConn);
-	console.log(m2);
+	try {
+		let m2 = await util.socketReader(hostConn);
+		t.comment(m2);
+	} catch (error) {
+		t.fail("No m2");
+	}
 	util.waitForClose(hostConn);
 	util.waitForClose(clientConn);
 	t.end();

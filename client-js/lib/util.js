@@ -131,12 +131,13 @@ export async function setupWebsocket(uri){
 }
 
 export async function sleep(ms) {
-	await new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export function socketReader(socket) {
-	return new Promise(function (resolve, reject) {
+	let reader = new Promise(function (resolve, reject) {
 		socket.onmessage = function(event){
+			console.log(event.data)
 			resolve(event.data)
 		}
 		socket.onclose = function(){
@@ -146,13 +147,23 @@ export function socketReader(socket) {
 			reject("Error");
 		};
 	})
+	return runWithTimeout(reader, 2000);
 }
 
 export function waitForClose(socket) {
 	return new Promise(function (resolve) {
 		socket.onclose = function(){
 			resolve();
-		};;
-		socket.close()
+		}
+		socket.close();
 	})
+}
+
+export function runWithTimeout(prom, time) {
+	// https://advancedweb.hu/how-to-add-timeout-to-a-promise-in-javascript/
+	let timer;
+	return Promise.race([
+		prom,
+		new Promise((_r, rej) => timer = setTimeout(rej, time))
+	]).finally(() => clearTimeout(timer));
 }
