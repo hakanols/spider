@@ -102,61 +102,9 @@ export function isArray(arg) {
   		return Array.isArray(arg)
   	}
 }
-export async function setupWebsocket(uri){
-	return await new Promise(function (resolve, reject) {
-			try {
-				const webSocket = new WebSocket(uri);
-				webSocket.binaryType = "arraybuffer";
-
-				webSocket.onclose = function(){
-					reject("Closed during connection");
-				};
-
-				webSocket.onerror = function(){
-					reject("Error during connection: " + uri);
-				};
-
-				webSocket.onopen = function() {
-					webSocket.onclose = function(){
-						console.log("Closed");
-
-					};
-					resolve(webSocket)
-				};
-			} catch (e) {
-				reject(e)
-			}
-		}
-	);
-}
 
 export async function sleep(ms) {
 	return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-export function socketReader(socket) {
-	let reader = new Promise(function (resolve, reject) {
-		socket.onmessage = function(event){
-			console.log(event.data)
-			resolve(event.data)
-		}
-		socket.onclose = function(){
-			reject("Closed");
-		};
-		socket.onerror = function(){
-			reject("Error");
-		};
-	})
-	return runWithTimeout(reader, 2000);
-}
-
-export function waitForClose(socket) {
-	return new Promise(function (resolve) {
-		socket.onclose = function(){
-			resolve();
-		}
-		socket.close();
-	})
 }
 
 export function runWithTimeout(prom, time) {
@@ -164,6 +112,57 @@ export function runWithTimeout(prom, time) {
 	let timer;
 	return Promise.race([
 		prom,
-		new Promise((_r, rej) => timer = setTimeout(rej, time))
+		new Promise((_r, reject) => timer = setTimeout(reject, time))
 	]).finally(() => clearTimeout(timer));
+}
+
+export function triggWaiter(){
+    let trigger = null;
+	function waiter(waitTime){
+		return Promise.race([
+			new Promise(function(resolve){
+				trigger = resolve;
+			}),
+			sleep(waitTime)
+		])
+		.finally(() => trigger = null);
+	}
+
+	function trigg(){
+        if (trigger != null){
+			trigger()
+		}
+	}
+	return {
+		waiter: waiter,
+		trigg: trigg
+	}
+}
+
+export function waitQueue(){
+	let queue = [];
+	let trigger = triggWaiter();
+
+	async function pull(waitTime){
+		let data = queue.shift();
+		if (data != undefined){
+			return data;
+		}
+		await trigger.waiter(waitTime)
+		data = queue.shift()
+		if (data != undefined){
+            return data;
+		}
+		return null
+	}
+
+	function push(data) {
+		queue.push(data)
+		trigger.trigg()
+	}
+
+    return {
+        pull: pull,
+        push: push
+    }
 }
