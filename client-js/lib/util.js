@@ -23,6 +23,7 @@ export function hex2Uint8Array(str) {
     }
     return new Uint8Array(arr)
 }
+
 // Takes a hex-string and returns an ArrayBuffer
 export function hex2ab(hex){
 	if (typeof hex !== 'string') {
@@ -42,11 +43,13 @@ export function hex2ab(hex){
 	}
 	return new Uint8Array(arr).buffer
 }
+
 // Takes an ArrayBuffer and returns a hex-string
 export function ab2hex(buffer){
     return Array.prototype.map.call(new Uint8Array(buffer),
     		x => ('00' + x.toString(16)).slice(-2)).join('');
 }
+
 // Compares two Uint8Arrays for byte equality
 export function uint8ArrayEquals(uints1, uints2){
 	if (!(uints1 instanceof Uint8Array) ||
@@ -63,6 +66,7 @@ export function uint8ArrayEquals(uints1, uints2){
 	}
 	return true
 }
+
 // Compares two ArrayBuffers for byte equality
 export function bufferEquals(buffer1, buffer2) {
 	if (!(buffer1 instanceof ArrayBuffer) ||
@@ -81,6 +85,7 @@ export function bufferEquals(buffer1, buffer2) {
 	}
 	return true
 }
+
 // Returns the number of ms since Unix epoch
 // Like Java's System.currentTimeMillis
 export function currentTimeMs() {
@@ -90,10 +95,12 @@ export function currentTimeMs() {
 		return Date.now()
 	}
 }
+
 // Returns true iff arg is a string
 export function isString(arg) {
 	return typeof arg === "string" || arg instanceof String
 }
+
 // Returns true iff arg is an array
 export function isArray(arg) {
 	if (!Array.isArray) {
