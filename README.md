@@ -20,3 +20,6 @@
 * Run JS testes. Have a Spider server runing on localhost (go run .)
   * npm run test
   * npm run test-browser
+* Local Docker
+    docker build --rm -t spider .
+    docker run --rm -p 8080:8080/tcp -t spider
