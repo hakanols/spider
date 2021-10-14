@@ -3,18 +3,15 @@
   "version": "1.0.0",
   "description": "TBD",
   "main": "TBD",
+  "type": "module",
   "scripts": {
-    "test": "node -r esm test/test.js",
-    "test-browser": "node -r esm node_modules/browser-quick-start /test/testInBrowser.html"
+    "test": "node test/test.js",
+    "browser": "node test/browser-quick-start.js /test/runJs.html?file=test.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "esm": "^3.0.62",
     "websocket": "^1.0.29"
-  },
-  "devDependencies": {
-   "browser-quick-start": "^1.0.1"
   }
 }

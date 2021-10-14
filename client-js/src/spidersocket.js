@@ -5,21 +5,7 @@ const OPEN = 1;
 const CLOSING = 2;
 const CLOSED = 3;
 
-export function createFilterOptions(name){
-    return {
-        filters: [{
-            namePrefix: name
-        }],
-        optionalServices: [POT_SERVICE_UUID]
-    }
-}
-
-export async function connect(device) {
-    let txCharacteristic;
-    let rxCharacteristic;
-    let selectedDevice;
-    let connectedServer;
-
+export async function spiderSocket(url) {
     let receiveBuffer = new Uint8Array([]);
 
     let exposedFunctions = {
@@ -160,7 +146,10 @@ export async function connect(device) {
         selectedDevice.gatt.disconnect();
     }
 
-    async function constructor(device) {
+    async function constructor(url) {
+
+        let socket = await asyncsocket.setupWebsocket(uri)
+
         selectedDevice = device;
         connectedServer = await connectingToDevice(selectedDevice);
         connectedToServer(selectedDevice, connectedServer);
@@ -171,7 +160,7 @@ export async function connect(device) {
         return exposedFunctions;
     }
 
-    return await constructor(device);
+    return await constructor(url);
 }
 
 export async function connectToUri(uri) {

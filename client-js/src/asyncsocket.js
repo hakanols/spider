@@ -1,5 +1,5 @@
 import * as util from './../lib/util.js';
-const WebSocket = typeof module !== 'undefined' && module.exports ? require('websocket').w3cwebsocket : self.WebSocket;
+const WebSocket = (typeof window === 'undefined') ? (await import('websocket')).default.w3cwebsocket : self.WebSocket;
 
 const CONNECTING = 0;
 const OPEN = 1;

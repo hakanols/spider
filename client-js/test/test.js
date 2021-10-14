@@ -1,9 +1,7 @@
 //import * as spiderSocket from './../src/spidersocket.js';
 import * as util from './../lib/util.js';
 import * as asyncsocket from './../src/asyncsocket.js';
-
-
-const test = typeof module !== 'undefined' && module.exports ? require('./tape.js') : self.test;
+import test from './tap-esm.js'
 
 const isLocalhost = typeof location == 'undefined' || location.hostname === "localhost" || location.hostname === "127.0.0.1";
 const onlieServer = "wss://spider-8t2d6.ondigitalocean.app/net";
@@ -12,7 +10,7 @@ const testServerUri = ( isLocalhost ? localServer : onlieServer );
 
 test('Is a spider running', async function (t) {
 	const whatToDo = 'Run from terminal: go run .';
-	t.comment(testServerUri);
+	console.log(testServerUri);
 	try {
 		let conn = await asyncsocket.setupWebsocket(testServerUri);
 		await conn.close();
@@ -61,24 +59,24 @@ test('Test queue', async function (t) {
     queue.push("gris");
 	queue.push("svin");
 
-	t.equals(await queue.pull(100), "gris", "Got correct string 'gris'");
-	t.equals(await queue.pull(100), "svin", "Got correct string 'svin'");
-	t.equals(await queue.pull(100), null, "Should time out");
+	t.equal(await queue.pull(100), "gris", "Got correct string 'gris'");
+	t.equal(await queue.pull(100), "svin", "Got correct string 'svin'");
+	t.equal(await queue.pull(100), null, "Should time out");
 
 	let trigger = util.triggWaiter();
 	queue.pull(100)
 	.then(function(data){
-		t.equals(data, "galt", "Got correct string 'galt'");
+		t.equal(data, "galt", "Got correct string 'galt'");
 		trigger.trigg();
 	})
-	.catch(function(data){
-		t.fail("Should not get error: " + e.message);
+	.catch(function(err){
+		t.fail("Should not get error: " + err.message);
 	})
 	queue.push("galt")
 
     await trigger.waiter(100); // Remove to expose error in queue
 	queue.push("sugga");
-	t.equals(await queue.pull(100), "sugga", "Got correct string 'sugga'");
+	t.equal(await queue.pull(100), "sugga", "Got correct string 'sugga'");
 
 	t.end();
 });
@@ -91,19 +89,19 @@ test('Test spider', async function (t) {
 	let hostConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(testServerUri));
 	let socketId = await hostConn.receive(100);
 	let clientAddress = testServerUri + '/' + util.ab2hex(socketId);
-	t.comment("Host Address: " + clientAddress);
+	console.log("Host Address: " + clientAddress);
 	let clientConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(clientAddress));
 	let m1 = await hostConn.receive(100);
 	let sessionId = m1.slice(0, 1);
-	t.comment("Session id: " + util.ab2hex(sessionId));
-    t.deepEqual(m1.slice(1), messageTypeNew, "Got new session");
+	console.log("Session id: " + util.ab2hex(sessionId));
+    t.arrayEqual(m1.slice(1), messageTypeNew, "Got new session");
 
 	let testMessage1 = util.hex2ab("deadbeef")
 	clientConn.send(testMessage1)
 	let m2 = await hostConn.receive(100);
-	t.deepEquals(m2.slice(0, 1), sessionId, "Matching session id");
-	t.deepEqual(m2.slice(1, 2), messageTypeMessage, "Got new message");
-	t.deepEqual(m2.slice(2), testMessage1, "M2 matching message");
+	t.arrayEqual(m2.slice(0, 1), sessionId, "Matching session id");
+	t.arrayEqual(m2.slice(1, 2), messageTypeMessage, "Got new message");
+	t.arrayEqual(m2.slice(2), testMessage1, "M2 matching message");
 
 	let testMessage2 = util.hex2ab("feedcafe")
 	var message = new Uint8Array(2 + testMessage2.byteLength);
@@ -112,12 +110,12 @@ test('Test spider', async function (t) {
 	message.set(new Uint8Array(testMessage2), 2);
     hostConn.send(message)
 	let m3 = await clientConn.receive(100);
-	t.deepEqual(m3, testMessage2, "M3 matching message");
+	t.arrayEqual(m3, testMessage2, "M3 matching message");
 
 	await clientConn.close();
 	let m4 = await hostConn.receive(100);
-	t.deepEqual(m4.slice(0, 1), sessionId, "Matching session id");
-	t.deepEqual(m4.slice(1), messageTypeClose, "Got session close");
+	t.arrayEqual(m4.slice(0, 1), sessionId, "Matching session id");
+	t.arrayEqual(m4.slice(1), messageTypeClose, "Got session close");
 
 	await hostConn.close();
 	t.end();

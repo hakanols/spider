@@ -1,5 +1,3 @@
-const WebSocket = typeof module !== 'undefined' && module.exports ? require('websocket').w3cwebsocket : self.WebSocket;
-
 export function hex2Uint8Array(str) {
     str = str.trim().toLowerCase();
     if (str.substring(0,2) === '0x') {

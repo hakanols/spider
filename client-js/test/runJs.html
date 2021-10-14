@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Testing</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <script type="module">
+            const logger = document.getElementById('log');
+
+            function printToPage(message, style){
+                let row = style != undefined ? '<div style="'+style+';">':'<div>';
+                if (typeof message == 'object') {
+                    row += (JSON && JSON.stringify ? JSON.stringify(message, undefined, 2) : message);
+                } else {
+                    row += message;
+                }
+                logger.innerHTML += row+'</div>';
+            }
+
+            function wrapConsolePrint(oldPrinter, style) {
+                return function(message){
+                    oldPrinter(message)
+                    printToPage(message, style);
+                }   
+            }
+
+            function noPath(file){
+                const fileParts = file.split('.');
+                const validCharacters = "^[a-zA-Z]+$";
+                return fileParts.length == 2 && fileParts[0].match(validCharacters) && fileParts[1].match(validCharacters)
+            }
+
+            async function run(){
+                const queryString = window.location.search;
+                const urlParams = new URLSearchParams(queryString)
+                if (!urlParams.has('file')){
+                    console.warn("No files to run");
+                }
+                console.log("Start");
+                for (const file of urlParams.get('file').split(',')) {
+                    if (!noPath(file)){
+                        console.warn(file+' is not a valid file.');
+                        continue ;
+                    }
+                    console.log('Run file '+file);
+                    await import('./'+file); 
+                }
+                console.log("Done");
+            }
+
+            console.log = wrapConsolePrint(console.log);
+            console.debug = wrapConsolePrint(console.debug, "color:MediumSeaGreen");
+            console.warn = wrapConsolePrint(console.warn, "color:Orange");
+            console.error = wrapConsolePrint(console.error, "color:Tomato");
+
+            window.onload = run();
+
+        </script>
+    </head>
+    <body>
+        <p>Run JS files</p>
+        <hr>
+        <pre id='log'></pre>
+    </body>
+</html>
