@@ -34,7 +34,7 @@ export function wrapWebsocket(webSocket){
 	var readQueue = util.waitQueue();
 
 	function messageEvent(event){
-        readQueue.push(event.data);
+        readQueue.push(new Uint8Array(event.data));
 	}
 
 	async function receive(waitTime){

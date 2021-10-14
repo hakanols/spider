@@ -82,9 +82,9 @@ test('Test queue', async function (t) {
 });
 
 test('Test spider', async function (t) {
-    const messageTypeNew = new ArrayBuffer(1)
-	const messageTypeMessage = new ArrayBuffer(0)
-	const messageTypeClose = new ArrayBuffer(2)
+    const messageTypeNew = 1
+	const messageTypeMessage = 0
+	const messageTypeClose = 2
 
 	let hostConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(testServerUri));
 	let socketId = await hostConn.receive(100);
@@ -92,30 +92,27 @@ test('Test spider', async function (t) {
 	console.log("Host Address: " + clientAddress);
 	let clientConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(clientAddress));
 	let m1 = await hostConn.receive(100);
-	let sessionId = m1.slice(0, 1);
-	console.log("Session id: " + util.ab2hex(sessionId));
-    t.arrayEqual(m1.slice(1), messageTypeNew, "Got new session");
+	let sessionId = m1[0];
+	console.log("Session id: " + util.ab2hex([sessionId]));
+    t.equal(m1[1], messageTypeNew, "Got new session");
 
 	let testMessage1 = util.hex2ab("deadbeef")
 	clientConn.send(testMessage1)
 	let m2 = await hostConn.receive(100);
-	t.arrayEqual(m2.slice(0, 1), sessionId, "Matching session id");
-	t.arrayEqual(m2.slice(1, 2), messageTypeMessage, "Got new message");
+	t.equal(m2[0], sessionId, "Matching session id");
+	t.equal(m2[1], messageTypeMessage, "Got new message");
 	t.arrayEqual(m2.slice(2), testMessage1, "M2 matching message");
 
 	let testMessage2 = util.hex2ab("feedcafe")
-	var message = new Uint8Array(2 + testMessage2.byteLength);
-	message.set(new Uint8Array(sessionId), 0);
-	message.set(new Uint8Array(messageTypeMessage), 1);
-	message.set(new Uint8Array(testMessage2), 2);
+	var message = new Uint8Array( [sessionId, messageTypeMessage, ...testMessage2]);
     hostConn.send(message)
 	let m3 = await clientConn.receive(100);
 	t.arrayEqual(m3, testMessage2, "M3 matching message");
 
 	await clientConn.close();
 	let m4 = await hostConn.receive(100);
-	t.arrayEqual(m4.slice(0, 1), sessionId, "Matching session id");
-	t.arrayEqual(m4.slice(1), messageTypeClose, "Got session close");
+	t.arrayEqual(m4[0], sessionId, "Matching session id");
+	t.arrayEqual(m4[1], messageTypeClose, "Got session close");
 
 	await hostConn.close();
 	t.end();

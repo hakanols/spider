@@ -1,27 +1,3 @@
-export function hex2Uint8Array(str) {
-    str = str.trim().toLowerCase();
-    if (str.substring(0,2) === '0x') {
-        str = str.substring(2, str.length)
-    }
-    if (str.length % 2 !== 0) {
-        throw new Error("String length has to be even. \n\t" +
-            "Length: " + str.length)
-    }
-    let byte;
-	let arr = [];
-    for (let i = 0; i < str.length; i += 2) {
-        byte = str.substring(i, i+2);
-        if (!((/[0-9a-fA-F]{2}/).test(byte))) {
-            throw new Error("Bad string format, must be hexadecimal.\n\t" +
-                "String: " + str + "\n\t" +
-                "Byte: " + byte + "\n\t" +
-                "Pos: " + i)
-        }
-        arr.push(parseInt(byte, 16))
-    }
-    return new Uint8Array(arr)
-}
-
 // Takes a hex-string and returns an ArrayBuffer
 export function hex2ab(hex){
 	if (typeof hex !== 'string') {
@@ -39,12 +15,12 @@ export function hex2ab(hex){
 	for (let i = 0; i < hex.length; i += 2) {
 		arr.push(parseInt(hex.substring(i, i+2), 16))
 	}
-	return new Uint8Array(arr).buffer
+	return new Uint8Array(arr)
 }
 
 // Takes an ArrayBuffer and returns a hex-string
-export function ab2hex(buffer){
-    return Array.prototype.map.call(new Uint8Array(buffer),
+export function ab2hex(array){
+    return Array.prototype.map.call(new Uint8Array(array),
     		x => ('00' + x.toString(16)).slice(-2)).join('');
 }
 
