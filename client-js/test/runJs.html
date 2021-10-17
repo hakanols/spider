@@ -51,8 +51,18 @@
             console.debug = wrapConsolePrint(console.debug, "color:MediumSeaGreen");
             console.warn = wrapConsolePrint(console.warn, "color:Orange");
             console.error = wrapConsolePrint(console.error, "color:Tomato");
+            console.trace = wrapConsolePrint(console.trace, "color:Tomato");
+            console.assert = wrapConsolePrint(console.assert, "color:Tomato");
+            
+            window.onerror = function(message, source, lineno, colno, error) {
+                printToPage("On error: "+message,  "color:Tomato");
+            };
+            window.addEventListener("unhandledrejection", function(promiseRejectionEvent) { 
+                printToPage("Unhandled rejection: "+ promiseRejectionEvent,  "color:Tomato"); 
+            });
 
-            window.onload = run();
+            window.onload = run()
+                .catch(e => console.error("Error: "+e))
 
         </script>
     </head>
