@@ -7,7 +7,7 @@
             const logger = document.getElementById('log');
             function printToPage(type, message, style){
                 let row = style != undefined ? '<div style="'+style+';">':'<div>';
-                row += type+ ": ";
+                row += type == undefined ? "" : type+ ": ";
                 if (typeof message == 'object') {
                     row += (JSON && JSON.stringify ? JSON.stringify(message, undefined, 2) : message);
                 } else {
@@ -47,18 +47,19 @@
                 console.log("Done");
             }
 
-            console.log = wrapConsolePrint(console.log, "log");
-            console.debug = wrapConsolePrint(console.debug, "", "color:MediumSeaGreen");
-            console.warn = wrapConsolePrint(console.warn, "", "color:Orange");
-            console.error = wrapConsolePrint(console.error, "", "color:Tomato");
-            console.trace = wrapConsolePrint(console.trace, "", "color:Tomato");
-            console.assert = wrapConsolePrint(console.assert, "", "color:Tomato");
+            console.log = wrapConsolePrint(console.log);
+            console.debug = wrapConsolePrint(console.debug, "Debug", "color:MediumSeaGreen");
+            console.warn = wrapConsolePrint(console.warn, "Warning", "color:Orange");
+            console.error = wrapConsolePrint(console.error, "Error", "color:Tomato");
+            console.trace = wrapConsolePrint(console.trace, "Trace", "color:Tomato");
+            console.assert = wrapConsolePrint(console.assert, "Assert", "color:Tomato");
             
             window.onerror = function(message, source, lineno, colno, error) {
-                printToPage("On error", message, "color:Tomato");
+                printToPage("Browser error", message, "color:Tomato");
             };
             window.addEventListener("unhandledrejection", function(promiseRejectionEvent) { 
-                printToPage("Unhandled rejection", promiseRejectionEvent,  "color:Tomato"); 
+                printToPage("Unhandled rejection", JSON.stringify(promiseRejectionEvent,
+                    ["message", "arguments", "type", "name"]),  "color:Tomato"); 
             });
 
             window.onload = run();
