@@ -29,7 +29,7 @@
                 return fileParts.length == 2 && fileParts[0].match(validCharacters) && fileParts[1].match(validCharacters)
             }
 
-            async function run(){
+            function run(){
                 const queryString = window.location.search;
                 const urlParams = new URLSearchParams(queryString)
                 if (!urlParams.has('file')){
@@ -42,7 +42,7 @@
                         continue ;
                     }
                     console.log('Run file '+file);
-                    await import('./'+file); 
+                    import('./'+file); 
                 }
                 console.log("Done");
             }
@@ -61,8 +61,7 @@
                 printToPage("Unhandled rejection: "+ promiseRejectionEvent,  "color:Tomato"); 
             });
 
-            window.onload = run()
-                .catch(e => console.error("Error: "+e))
+            window.onload = run();
 
         </script>
     </head>
