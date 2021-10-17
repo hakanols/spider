@@ -42,7 +42,8 @@
                         continue ;
                     }
                     console.log('Run file '+file);
-                    import('./'+file); 
+                    import('./'+file)
+                        .catch(err=>console.error(err))
                 }
                 console.log("Done");
             }
