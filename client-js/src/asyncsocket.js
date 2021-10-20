@@ -1,5 +1,11 @@
 import * as util from './../lib/util.js';
-const WebSocket = (typeof window === 'undefined') ? (await import('websocket')).default.w3cwebsocket : self.WebSocket;
+let WebSocket;
+if (typeof window === 'undefined') {
+    WebSocket = (await import('websocket')).default.w3cwebsocket;
+}
+else {
+    WebSocket = self.WebSocket;
+}
 
 const CONNECTING = 0;
 const OPEN = 1;
