@@ -1,18 +1,22 @@
 import * as util from './../lib/util.js';
-let WebSocket;
-if (typeof window === 'undefined') {
-    console.log("Hello")
-	//WebSocket = (await import('websocket')).default.w3cwebsocket;
-}
-else {
-	console.log("World")
-    WebSocket = self.WebSocket;
-}
+const WebSocket = getWebSocket();
 
 const CONNECTING = 0;
 const OPEN = 1;
 const CLOSING = 2;
 const CLOSED = 3;
+
+async function getWebSocket(){
+	if (typeof window === 'undefined') {
+		console.log("Hello")
+		const nodeWebsocket = await import('websocket');
+		return nodeWebsocket.default.w3cwebsocket;
+	}
+	else {
+		console.log("World")
+		return self.WebSocket;
+	}
+}
 
 export async function setupWebsocket(uri){
 	let webSocket = new WebSocket(uri);
