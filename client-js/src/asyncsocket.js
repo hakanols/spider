@@ -6,14 +6,12 @@ const OPEN = 1;
 const CLOSING = 2;
 const CLOSED = 3;
 
-async function getWebSocket(){
+export async function getWebSocket(){
 	if (typeof window === 'undefined') {
-		console.log("Hello")
 		const nodeWebsocket = await import('websocket');
 		return nodeWebsocket.default.w3cwebsocket;
 	}
 	else {
-		console.log("World")
 		return self.WebSocket;
 	}
 }
@@ -35,7 +33,6 @@ export async function setupWebsocket(uri){
 		};
 	});
 }
-
 
 export function wrapWebsocket(webSocket){
 

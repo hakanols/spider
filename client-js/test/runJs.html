@@ -43,7 +43,6 @@
                     }
                     console.log('Run file '+file);
                     await import('./'+file)
-                        .catch(err=>console.error(err))
                 }
                 console.log("Done");
             }
