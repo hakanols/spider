@@ -8,10 +8,12 @@ const CLOSED = 3;
 
 async function getWebSocket(){
 	if (typeof window === 'undefined') {
+		console.log("Browser")
 		//const nodeWebsocket = await import('websocket');
 		//return nodeWebsocket.default.w3cwebsocket;
 	}
 	else {
+		console.log("NodeJS")
 		return self.WebSocket;
 	}
 }
