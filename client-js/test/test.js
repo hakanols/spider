@@ -1,9 +1,7 @@
 //import * as spiderSocket from './../src/spidersocket.js';
-//import * as util from './../lib/util.js';
-
+import * as util from './../lib/util.js';
 import * as asyncsocket from './../src/asyncsocket.js';
 import test from './tap-esm.js'
-let util = await import('./../lib/util.js')
 
 const isLocalhost = typeof location == 'undefined' || location.hostname === "localhost" || location.hostname === "127.0.0.1";
 const onlieServer = "wss://spider-8t2d6.ondigitalocean.app/net";
