@@ -3,8 +3,8 @@ let WebSocket;
 if (typeof window === 'undefined') {
 	console.log("NodeJS")
 	try{
-	    let NodeWebSocket = await import('websocket')
-        WebSocket = NodeWebSocket.default.w3cwebsocket;
+	    //let NodeWebSocket = await import('websocket')
+        //WebSocket = NodeWebSocket.default.w3cwebsocket;
 	}
 	catch(e){
 		console.error(e)
