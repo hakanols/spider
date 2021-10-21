@@ -1,9 +1,11 @@
 import * as util from './../lib/util.js';
 let WebSocket;
 if (typeof window === 'undefined') {
-    WebSocket = (await import('websocket')).default.w3cwebsocket;
+    console.log("Hello")
+	//WebSocket = (await import('websocket')).default.w3cwebsocket;
 }
 else {
+	console.log("World")
     WebSocket = self.WebSocket;
 }
 
