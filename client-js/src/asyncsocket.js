@@ -1,5 +1,5 @@
 import * as util from './../lib/util.js';
-const WebSocket = getWebSocket();
+const WebSocket = await getWebSocket();
 
 const CONNECTING = 0;
 const OPEN = 1;
