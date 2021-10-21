@@ -8,12 +8,10 @@ const CLOSED = 3;
 
 async function getWebSocket(){
 	if (typeof window === 'undefined') {
-		console.log("Hello")
-		const nodeWebsocket = await import('websocket');
-		return nodeWebsocket.default.w3cwebsocket;
+		//const nodeWebsocket = await import('websocket');
+		//return nodeWebsocket.default.w3cwebsocket;
 	}
 	else {
-		console.log("World")
 		return self.WebSocket;
 	}
 }
@@ -80,3 +78,4 @@ export function wrapWebsocket(webSocket){
         readyState: CLOSED
     }
 }
+
