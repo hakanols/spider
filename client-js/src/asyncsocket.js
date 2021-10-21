@@ -2,8 +2,8 @@ import * as util from './../lib/util.js';
 let WebSocket;
 if (typeof window === 'undefined') {
 	console.log("NodeJS")
-	let NodeWebSocket = await import('websocket')
-    WebSocket = NodeWebSocket.default.w3cwebsocket;
+	//let NodeWebSocket = await import('websocket')
+    //WebSocket = NodeWebSocket.default.w3cwebsocket;
 }
 else {
 	console.log("Browser")
