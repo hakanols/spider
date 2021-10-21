@@ -6,7 +6,7 @@ const OPEN = 1;
 const CLOSING = 2;
 const CLOSED = 3;
 
-async function getWebSocket(){
+function getWebSocket(){
 	if (typeof window === 'undefined') {
 		console.log("Browser")
 		//const nodeWebsocket = await import('websocket');
