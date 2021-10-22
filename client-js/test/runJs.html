@@ -42,9 +42,11 @@
                         continue ;
                     }
                     console.log('Run file '+file);
+
+                    // Warning: Do not use await on initialization in sub modules.
+                    // Causes problem on iOS browsers and perhaps more. 
                     await import('./'+file)
                 }
-                console.log("Done");
             }
 
             console.log = wrapConsolePrint(console.log);
