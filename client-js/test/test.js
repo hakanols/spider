@@ -117,7 +117,3 @@ test('Test spider', async function (t) {
 	await hostConn.close();
 	t.end();
 });
-
-console.log("Before sleep")
-await util.sleep(1000)
-console.log("After sleep")
