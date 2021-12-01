@@ -8,6 +8,8 @@ const onlieServer = "wss://spider-8t2d6.ondigitalocean.app/net";
 const localServer = "ws://localhost:8080/net";
 const testServerUri = ( isLocalhost ? localServer : onlieServer );
 
+console.log('Version: 0.0.1')
+
 test('Is a spider running', async function (t) {
 	const whatToDo = 'Run from terminal: go run .';
 	console.log(testServerUri);
@@ -59,12 +61,12 @@ test('Test queue', async function (t) {
     queue.push("gris");
 	queue.push("svin");
 
-	t.equal(await queue.pull(100), "gris", "Got correct string 'gris'");
-	t.equal(await queue.pull(100), "svin", "Got correct string 'svin'");
-	t.equal(await queue.pull(100), null, "Should time out");
+	t.equal(await queue.pull(50), "gris", "Got correct string 'gris'");
+	t.equal(await queue.pull(50), "svin", "Got correct string 'svin'");
+	t.equal(await queue.pull(50), null, "Should time out");
 
 	let trigger = util.triggWaiter();
-	queue.pull(100)
+	queue.pull(50)
 	.then(function(data){
 		t.equal(data, "galt", "Got correct string 'galt'");
 		trigger.trigg();
@@ -74,9 +76,9 @@ test('Test queue', async function (t) {
 	})
 	queue.push("galt")
 
-    await trigger.waiter(100); // Remove to expose error in queue
+    await trigger.waiter(50); // Remove to expose error in queue
 	queue.push("sugga");
-	t.equal(await queue.pull(100), "sugga", "Got correct string 'sugga'");
+	t.equal(await queue.pull(50), "sugga", "Got correct string 'sugga'");
 
 	t.end();
 });
@@ -87,18 +89,18 @@ test('Test spider', async function (t) {
 	const messageTypeClose = 2
 
 	let hostConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(testServerUri));
-	let socketId = await hostConn.receive(100);
+	let socketId = await hostConn.receive(50);
 	let clientAddress = testServerUri + '/' + util.ab2hex(socketId);
 	console.log("Host Address: " + clientAddress);
 	let clientConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(clientAddress));
-	let m1 = await hostConn.receive(100);
+	let m1 = await hostConn.receive(50);
 	let sessionId = m1[0];
 	console.log("Session id: " + util.ab2hex([sessionId]));
     t.equal(m1[1], messageTypeNew, "Got new session");
 
 	let testMessage1 = util.hex2ab("deadbeef")
 	clientConn.send(testMessage1)
-	let m2 = await hostConn.receive(100);
+	let m2 = await hostConn.receive(50);
 	t.equal(m2[0], sessionId, "Matching session id");
 	t.equal(m2[1], messageTypeMessage, "Got new message");
 	t.arrayEqual(m2.slice(2), testMessage1, "M2 matching message");
@@ -106,11 +108,11 @@ test('Test spider', async function (t) {
 	let testMessage2 = util.hex2ab("feedcafe")
 	var message = new Uint8Array( [sessionId, messageTypeMessage, ...testMessage2]);
     hostConn.send(message)
-	let m3 = await clientConn.receive(100);
+	let m3 = await clientConn.receive(50);
 	t.arrayEqual(m3, testMessage2, "M3 matching message");
 
 	await clientConn.close();
-	let m4 = await hostConn.receive(100);
+	let m4 = await hostConn.receive(50);
 	t.arrayEqual(m4[0], sessionId, "Matching session id");
 	t.arrayEqual(m4[1], messageTypeClose, "Got session close");
 
