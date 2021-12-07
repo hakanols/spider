@@ -45,12 +45,7 @@
 
                     // Warning: Do not use await on initialization in sub modules.
                     // Causes problem on iOS browsers and perhaps more. 
-                    try {
-                        await import('./'+file)
-                    }
-                    catch(err) {
-                        console.error(err);
-                    }
+                    await import('./'+file)
                 }
             }
 
@@ -66,11 +61,11 @@
             };
             window.addEventListener("unhandledrejection", function(reason, promise) { 
                 printToPage("Unhandled rejection",
-                    'Reason:\n'+reason.toString()+'\nPromise:\n'+JSON.stringify(promise),
+                    `Reason:\n${reason}\nPromise:\n${promise}`,
                     "color:Tomato");                
             });
 
-            window.onload = run().catch(err=>console.error(err));
+            window.onload = run();
 
         </script>
     </head>
