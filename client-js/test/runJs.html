@@ -65,8 +65,9 @@
                 printToPage("Browser error", message, "color:Tomato");
             };
             window.addEventListener("unhandledrejection", function(reason, promise) { 
-                printToPage("Unhandled rejection reason", reason, "color:Tomato");                
-                printToPage("Unhandled rejection promise", promise, "color:Tomato");
+                printToPage("Unhandled rejection",
+                    'Reason:\n'+reason+'\nPromise:\n'+JSON.stringify(promise),
+                    "color:Tomato");                
             });
 
             window.onload = run().catch(err=>console.error(err));
