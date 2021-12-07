@@ -8,7 +8,7 @@ const onlieServer = "wss://spider-8t2d6.ondigitalocean.app/net";
 const localServer = "ws://localhost:8080/net";
 const testServerUri = ( isLocalhost ? localServer : onlieServer );
 
-console.log('Version: 0.0.3')
+console.log('Version: 0.0.4')
 
 test('Is a spider running', async function (t) {
 	const whatToDo = 'Run from terminal: go run .';

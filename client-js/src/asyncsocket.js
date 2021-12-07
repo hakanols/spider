@@ -28,7 +28,7 @@ async function lazyWebSocketLoader() {
 export async function setupWebsocket(uri){
 	await lazyWebSocketLoader()
 	let webSocket = new WebSocket(uri);
-	webSocket.binaryType = "blob";
+	webSocket.binaryType = "arraybuffer";
 	return await new Promise(function (resolve, reject) {
 		webSocket.onclose = function(){
 			reject("Closed during connection");
