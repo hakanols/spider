@@ -93,6 +93,7 @@ test('Test spider', async function (t) {
 	let clientAddress = testServerUri + '/' + util.ab2hex(socketId);
 	console.log("Host Address: " + clientAddress);
 	let clientConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(clientAddress));
+	await util.sleep(500)
 	let m1 = await hostConn.receive(50);
 	let sessionId = m1[0];
 	console.log("Session id: " + util.ab2hex([sessionId]));
