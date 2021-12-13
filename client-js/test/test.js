@@ -120,3 +120,16 @@ test('Test spider', async function (t) {
 	await hostConn.close();
 	t.end();
 });
+
+test('Test no message', async function (t) {
+	let hostConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(testServerUri));
+	let socketId = await hostConn.receive(50);
+	console.log("Socket ID: " + socketId);
+
+	let nothing = await hostConn.receive(50);
+
+	console.log("Got data: " + nothing);
+
+	await hostConn.close();
+	t.end();
+});
