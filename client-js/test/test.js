@@ -8,7 +8,7 @@ const onlieServer = "wss://spider-8t2d6.ondigitalocean.app/net";
 const localServer = "ws://localhost:8080/net";
 const testServerUri = ( isLocalhost ? localServer : onlieServer );
 
-console.log('Version: 0.0.5')
+console.log('Version: 0.0.6')
 
 test('Is a spider running', async function (t) {
 	const whatToDo = 'Run from terminal: go run .';
@@ -83,6 +83,21 @@ test('Test queue', async function (t) {
 	t.end();
 });
 
+test('Test websocket sanity', async function (t) {
+	let hostConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(testServerUri));
+	let socketId = await hostConn.receive(50);
+	console.log("Socket ID: " + socketId);
+
+	let nothing = await hostConn.receive(50);
+	console.log("Got nothing?: " + nothing);
+
+	await util.sleep(2000)
+	console.log("Sleep");
+
+	await hostConn.close();
+	t.end();
+});
+
 test('Test spider', async function (t) {
     const messageTypeNew = 1
 	const messageTypeMessage = 0
@@ -116,19 +131,6 @@ test('Test spider', async function (t) {
 	let m4 = await hostConn.receive(50);
 	t.arrayEqual(m4[0], sessionId, "Matching session id");
 	t.arrayEqual(m4[1], messageTypeClose, "Got session close");
-
-	await hostConn.close();
-	t.end();
-});
-
-test('Test no message', async function (t) {
-	let hostConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(testServerUri));
-	let socketId = await hostConn.receive(50);
-	console.log("Socket ID: " + socketId);
-
-	let nothing = await hostConn.receive(50);
-
-	console.log("Got data: " + nothing);
 
 	await hostConn.close();
 	t.end();
