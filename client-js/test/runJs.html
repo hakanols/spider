@@ -14,6 +14,14 @@
                 }
             }
 
+            function toErrorString(message){
+                if (typeof message == 'object') {
+                    return (JSON && JSON.stringify ? JSON.stringify(message, ["message", "arguments", "type", "name"], 2) : message);
+                } else {
+                    return message;
+                }
+            }
+
             function printToPage(type, message, style){
                 let row = style != undefined ? '<div style="'+style+';">':'<div>';
                 row += type == undefined ? "" : type+ ": ";
@@ -66,7 +74,7 @@
             };
             window.addEventListener("unhandledrejection", function(reason, promise) { 
                 printToPage("Unhandled rejection",
-                    `Reason:\n${toString(reason)}\nPromise:\n${toString(promise)}`,
+                    `Reason:\n${toErrorString(reason)}\nPromise:\n${toString(promise)}`,
                     "color:Tomato");                
             });
 
