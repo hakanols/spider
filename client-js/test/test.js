@@ -114,12 +114,16 @@ test('Test spider', async function (t) {
 	console.log("Session id: " + util.ab2hex([sessionId]));
     t.equal(m1[1], messageTypeNew, "Got new session");
 
+	console.log("Session up. Start 1s wait")
+	await util.sleep(1000)
 	let testMessage1 = util.hex2ab("deadbeef")
 	clientConn.send(testMessage1)
 	let m2 = await hostConn.receive(50);
 	t.equal(m2[0], sessionId, "Matching session id");
 	t.equal(m2[1], messageTypeMessage, "Got new message");
 	t.arrayEqual(m2.slice(2), testMessage1, "M2 matching message");
+	console.log("M2 received. Start 1s wait")
+	await util.sleep(1000)
 
 	let testMessage2 = util.hex2ab("feedcafe")
 	var message = new Uint8Array( [sessionId, messageTypeMessage, ...testMessage2]);
