@@ -108,13 +108,16 @@ test('Test spider', async function (t) {
 	let clientAddress = testServerUri + '/' + util.ab2hex(socketId);
 	console.log("Host Address: " + clientAddress);
 	let clientConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(clientAddress));
-	await util.sleep(500)
+
+	console.log("Session up. Start 1,5s wait")
+	await util.sleep(1500)
+
 	let m1 = await hostConn.receive(50);
 	let sessionId = m1[0];
 	console.log("Session id: " + util.ab2hex([sessionId]));
     t.equal(m1[1], messageTypeNew, "Got new session");
 
-	console.log("Session up. Start 1s wait")
+	console.log("Got session id. Start 1s wait")
 	await util.sleep(1000)
 	let testMessage1 = util.hex2ab("deadbeef")
 	clientConn.send(testMessage1)
