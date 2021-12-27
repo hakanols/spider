@@ -7,16 +7,16 @@
             const logger = document.getElementById('log');
 
             function toString(message){
-                if (typeof message == 'object') {
-                    return (JSON && JSON.stringify ? JSON.stringify(message, undefined, 2) : message);
+                if (typeof message == 'object' && JSON && JSON.stringify) {
+                    return JSON.stringify(message, undefined, 2);
                 } else {
                     return message;
                 }
             }
 
             function toErrorString(message){
-                if (typeof message == 'object') {
-                    return (JSON && JSON.stringify ? JSON.stringify(message, ["message", "arguments", "type", "name"], 2) : message);
+                if (typeof message == 'object' && JSON && JSON.stringify ) {
+                    return JSON.stringify(message, ["message", "arguments", "type", "name"], 2);
                 } else {
                     return message;
                 }
