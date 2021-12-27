@@ -69,8 +69,10 @@
             console.trace = wrapConsolePrint(console.trace, "Trace", "color:Tomato");
             console.assert = wrapConsolePrint(console.assert, "Assert", "color:Tomato");
             
-            window.onerror = function(message, source, lineno, colno, error) {
-                printToPage("Browser error", message, "color:Tomato");
+            window.onerror = function(message, source, lineno) {
+                printToPage("Browser error",
+                    "File: "+source+" Line: "+lineno+"\nMessage: "+message,
+                    "color:Tomato");
             };
             window.addEventListener("unhandledrejection", function(reason, promise) { 
                 printToPage("Unhandled rejection",
