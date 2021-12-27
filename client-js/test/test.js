@@ -91,9 +91,6 @@ test('Test websocket sanity', async function (t) {
 	let nothing = await hostConn.receive(50);
 	console.log("Got nothing?: " + nothing);
 
-	await util.sleep(2000)
-	console.log("Sleep");
-
 	await hostConn.close();
 	t.end();
 });
@@ -109,9 +106,6 @@ test('Test spider', async function (t) {
 	console.log("Host Address: " + clientAddress);
 	let clientConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(clientAddress));
 
-	console.log("Session up. Start 1,5s wait")
-	await util.sleep(1500)
-
 	let m1 = await hostConn.receive(200);
 	t.ok(m1 != null, "m1 is not null");
 	let sessionId = m1[0];
@@ -119,7 +113,6 @@ test('Test spider', async function (t) {
     t.equal(m1[1], messageTypeNew, "Got new session");
 
 	console.log("Got session id. Start 1s wait")
-	await util.sleep(1000)
 	let testMessage1 = util.hex2ab("deadbeef")
 	clientConn.send(testMessage1)
 	let m2 = await hostConn.receive(200);
@@ -128,7 +121,6 @@ test('Test spider', async function (t) {
 	t.equal(m2[1], messageTypeMessage, "Got new message");
 	t.arrayEqual(m2.slice(2), testMessage1, "M2 matching message");
 	console.log("M2 received. Start 1s wait")
-	await util.sleep(1000)
 
 	let testMessage2 = util.hex2ab("feedcafe")
 	var message = new Uint8Array( [sessionId, messageTypeMessage, ...testMessage2]);
@@ -144,5 +136,11 @@ test('Test spider', async function (t) {
 	t.arrayEqual(m4[1], messageTypeClose, "Got session close");
 
 	await hostConn.close();
+	t.end();
+});
+
+test('Test browser test sanity', async function (t) {
+	let empty = null;
+	t.arrayEqual(empty[0], null, "Array index 0 of null should crash");
 	t.end();
 });
