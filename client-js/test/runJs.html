@@ -76,7 +76,7 @@
             };
             window.addEventListener("unhandledrejection", function(reason, promise) { 
                 printToPage("Unhandled rejection",
-                    `Reason:\n${toErrorString(reason)}\nPromise:\n${toString(promise)}`,
+                    "More info in console\n"+toErrorString(reason),
                     "color:Tomato");                
             });
 
