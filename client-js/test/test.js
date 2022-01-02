@@ -138,9 +138,3 @@ test('Test spider', async function (t) {
 	await hostConn.close();
 	t.end();
 });
-
-test('Test browser test sanity', async function (t) {
-	let empty = null;
-	t.arrayEqual(empty[0], null, "Array index 0 of null should crash");
-	t.end();
-});
