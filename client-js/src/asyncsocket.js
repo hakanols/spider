@@ -10,11 +10,11 @@ async function webSocketLoader() {
 	if (typeof window === 'undefined'){
 		console.log("Loading NodeJS Websocket module")
 		let NodeWebSocket = await import('websocket')
-		WebSocket = NodeWebSocket.default.w3cwebsocket;
+		return NodeWebSocket.default.w3cwebsocket;
 	}
 	else {
 		console.log("Loading native Browser Websocket support")
-		WebSocket = self.WebSocket;
+		return self.WebSocket;
 	}
 }
 
