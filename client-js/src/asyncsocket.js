@@ -42,18 +42,14 @@ export function wrapWebsocket(webSocket){
     webSocket.onerror = (e) => console.error('ERROR: ', e);
     webSocket.onmessage = messageEvent
 
-	var readQueue = util.waitQueue();
+	let readQueue = util.waitQueue();
 
 	function messageEvent(event){
         readQueue.push(new Uint8Array(event.data));
 	}
 
 	async function receive(waitTime){
-		var message = readQueue.pull(waitTime);
-		if (message == null){
-			throw Exception("Timeout")
-		}
-		return message
+		return readQueue.pull(waitTime);
 	}
 
 	function send(message){

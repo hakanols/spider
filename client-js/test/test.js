@@ -1,6 +1,6 @@
-//import * as spiderSocket from './../src/spidersocket.js';
 import * as util from './../lib/util.js';
 import * as asyncsocket from './../src/asyncsocket.js';
+import * as spidersocket from './../src/spidersocket.js';
 import test from './tap-esm.js'
 
 const isLocalhost = typeof location == 'undefined' || location.hostname === "localhost" || location.hostname === "127.0.0.1";
@@ -123,10 +123,9 @@ test('Test spider', async function (t) {
 	console.log("M2 received. Start 1s wait")
 
 	let testMessage2 = util.hex2ab("feedcafe")
-	var message = new Uint8Array( [sessionId, messageTypeMessage, ...testMessage2]);
+	let message = new Uint8Array( [sessionId, messageTypeMessage, ...testMessage2]);
     hostConn.send(message)
 	let m3 = await clientConn.receive(200);
-	t.ok(m3 != null, "m3 is not null");
 	t.arrayEqual(m3, testMessage2, "M3 matching message");
 
 	await clientConn.close();
@@ -136,5 +135,48 @@ test('Test spider', async function (t) {
 	t.arrayEqual(m4[1], messageTypeClose, "Got session close");
 
 	await hostConn.close();
+	t.end();
+});
+
+test('Test spider socket', async function (t) {
+	let newSocketQueue = util.waitQueue();
+
+	let ss = await spidersocket.createSpiderSocket(testServerUri,
+		(newSocket) => newSocketQueue.push(newSocket) );
+	let connUrl = ss.getConnUrl()
+
+	let clientConn1 = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(connUrl));
+	let socket = await newSocketQueue.pull(1000);
+	t.ok(socket != null, 'Got a socket');
+	let hostSocket1 = asyncsocket.wrapWebsocket(socket)
+
+	let testMessage1 = util.hex2ab("deadbeef")
+	hostSocket1.send(testMessage1);
+    let m1 = await clientConn1.receive(200);
+	t.arrayEqual(m1, testMessage1, "M1 matching message");
+
+	let testMessage2 = util.hex2ab("feedcafe");
+	clientConn1.send(testMessage2);
+    let m2 = await hostSocket1.receive(200);
+	t.arrayEqual(m2, testMessage2, "M2 matching message");
+
+	let clientConn2 = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(connUrl));
+	socket = await newSocketQueue.pull(1000);
+	t.ok(socket != null, 'Got a socket');
+	let hostSocket2 = asyncsocket.wrapWebsocket(socket)
+
+	let testMessage3 = util.hex2ab("01234567")
+	hostSocket2.send(testMessage3);
+    let m3 = await clientConn2.receive(200);
+	t.arrayEqual(m3, testMessage3, "M3 matching message");
+
+	let testMessage4 = util.hex2ab("89abcdef");
+	clientConn2.send(testMessage4);
+    let m4 = await hostSocket2.receive(200);
+	t.arrayEqual(m4, testMessage4, "M4 matching message");
+
+	await clientConn1.close();
+	await clientConn2.close();
+	await ss.close();
 	t.end();
 });
