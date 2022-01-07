@@ -51,3 +51,8 @@ func (m *Mastermap) Get(key []byte) (interface{}, bool) {
 	net, ok := m.items[string(key)]
 	return net, ok
 }
+
+func (m *Mastermap) Has(key []byte) bool {
+		_, ok := m.Get(key)
+	return ok
+}

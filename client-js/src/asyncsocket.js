@@ -1,11 +1,6 @@
 import * as util from './../lib/util.js';
 let WebSocket = await webSocketLoader();
 
-const CONNECTING = 0;
-const OPEN = 1;
-const CLOSING = 2;
-const CLOSED = 3;
-
 async function webSocketLoader() {
 	if (typeof window === 'undefined'){
 		console.log("Loading NodeJS Websocket module")
@@ -38,8 +33,12 @@ export async function setupWebsocket(uri){
 
 export function wrapWebsocket(webSocket){
 
-    webSocket.onclose = () => console.log('onclose called');
-    webSocket.onerror = (e) => console.error('ERROR: ', e);
+    webSocket.onclose = () => {
+		exposedFunctions.readyState = WebSocket.CLOSED;
+		exposedFunctions.onclose();
+	}
+	webSocket.onopen = () => exposedFunctions.readyState = WebSocket.OPEN;
+    webSocket.onerror = (e) => exposedFunctions.onerror(e);
     webSocket.onmessage = messageEvent
 
 	let readQueue = util.waitQueue();
@@ -59,21 +58,28 @@ export function wrapWebsocket(webSocket){
 	function close() {
 		return new Promise(function (resolve) {
 			webSocket.onclose = function(){
+				exposedFunctions.readyState = WebSocket.CLOSED
 				resolve();
+				exposedFunctions.onclose()
 			}
+			exposedFunctions.readyState = WebSocket.CLOSING
 			webSocket.close();
 		})
 	}
 
-    return {
+    let exposedFunctions = {
+		onerror: (e) => console.error('ERROR: ', e),
+		onclose: () => {},
         close: close,
         receive: receive,
         send: send,
-        CONNECTING: CONNECTING,
-        OPEN: OPEN,
-        CLOSING: CLOSING,
-        CLOSED: CLOSED,
-        readyState: CLOSED
+        CONNECTING: WebSocket.CONNECTING,
+        OPEN: WebSocket.OPEN,
+        CLOSING: WebSocket.CLOSING,
+        CLOSED: WebSocket.CLOSED,
+		readyState: WebSocket.OPEN
     }
+
+	return exposedFunctions;
 }
 

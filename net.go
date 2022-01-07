@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"fmt"
 
 	"github.com/gorilla/websocket"
 )
@@ -52,6 +53,18 @@ func newNet() *Net {
 	}
 }
 
+type Client struct {
+	clientChannel chan []byte
+	conn          *websocket.Conn
+}
+
+func newClient(conn *websocket.Conn) *Client {
+	return &Client{
+		clientChannel: make(chan []byte, 256),
+		conn: conn,
+	}
+}
+
 func createMessageWithData(id byte, cmd byte, data []byte) []byte {
 	var buf bytes.Buffer
 	buf.WriteByte(id)
@@ -93,8 +106,9 @@ func writePump(conn *websocket.Conn, channel chan []byte) {
 	}
 }
 
-func hostReadPump(conn *websocket.Conn, clientList *Mastermap) {
+func hostReadPump(conn *websocket.Conn, clientList *Mastermap, net *Net, closeSignal chan struct{}) {
 	defer func() {
+		closeSignal <- struct{}{}
 		conn.Close()
 	}()
 	conn.SetReadLimit(maxMessageSize)
@@ -103,8 +117,8 @@ func hostReadPump(conn *websocket.Conn, clientList *Mastermap) {
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+			if !websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("hostReadPump error: %v", err)
 			}
 			break
 		}
@@ -120,7 +134,7 @@ func hostReadPump(conn *websocket.Conn, clientList *Mastermap) {
 			log.Println("Item missing: " + string(id))
 			return
 		}
-		clientChannel, ok := item.(chan []byte)
+		client, ok := item.(Client)
 		if !ok {
 			log.Println("Not a Net object")
 			return
@@ -130,7 +144,7 @@ func hostReadPump(conn *websocket.Conn, clientList *Mastermap) {
 			log.Println(err)
 			return
 		}
-		switch cmd { // ToDo handle Close and pause event
+		switch cmd { // ToDo pause event
 		case messageType:
 			data := make([]byte, 255)
 			len, err := buf.Read(data)
@@ -139,10 +153,15 @@ func hostReadPump(conn *websocket.Conn, clientList *Mastermap) {
 				log.Println(err)
 				return
 			}
-			clientChannel <- data
+			client.clientChannel <- data
+
+		case closeType:
+			client.conn.Close()
+			net.unregister <- id
+
 
 		default:
-			log.Println("Unknown byte: " + string(cmd))
+			log.Println( fmt.Sprintf("Unknown byte: %x", cmd) )
 		}
 	}
 }
@@ -156,11 +175,10 @@ func clientReadPump(conn *websocket.Conn, toHostChannel chan []byte, id byte, ne
 	conn.SetReadDeadline(time.Now().Add(pongWait))
 	conn.SetPongHandler(func(string) error { conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 	for {
-
 		_, message, err := conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+			if !websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("clientReadPump error: %v", err)
 			}
 			break
 		}
@@ -171,29 +189,40 @@ func clientReadPump(conn *websocket.Conn, toHostChannel chan []byte, id byte, ne
 func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 	clientList := NewMastermap(1)
 	toHostChannel := make(chan []byte, 256)
+	closeSignal := make(chan struct{})
+	net := newNet()
 
 	go writePump(hostConn, toHostChannel)
-	go hostReadPump(hostConn, clientList)
-
-	net := newNet()
+	go hostReadPump(hostConn, clientList, net, closeSignal)
+	
 	key := mm.Register(*net)
+	log.Println( fmt.Sprintf("New spider socket: %x", key) )
 	toHostChannel <- key[:]
 
+	loop:
 	for {
 		select {
 		case clientConn := <-net.register:
-			toClientChannel := make(chan []byte, 256)
-			id := clientList.Register(toClientChannel)
-			log.Println(id)
+			client := newClient(clientConn)
+			id := clientList.Register(*client)
+			log.Println( fmt.Sprintf("New socket key: %x id: %x", key, id) )
 			toHostChannel <- createMessage(id[0], openType)
 			go clientReadPump(clientConn, toHostChannel, id[0], net)
-			go writePump(clientConn, toClientChannel)
+			go writePump(clientConn, client.clientChannel)
 
 		case id := <-net.unregister:
-			toHostChannel <- createMessage(id, closeType)
-			clientList.Unregister([]byte{id})
+			if (clientList.Has([]byte{id})){
+				toHostChannel <- createMessage(id, closeType)
+				clientList.Unregister([]byte{id})
+				log.Println( fmt.Sprintf("Close socket key: %x id: %x", key, []byte{id}) )
+			}
+
+		case <- closeSignal:
+		    break loop
 		}
 	}
+	mm.Unregister(key)
+    log.Println( fmt.Sprintf("Close spider socket: %x", key ))
 }
 
 func serveNet(mm *Mastermap, w http.ResponseWriter, r *http.Request) {

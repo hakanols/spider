@@ -8,12 +8,12 @@ const CLOSED = 3;
 
 export async function createSpiderSocket(url, listener){
     const messageTypeNew = 1
-	const messageTypeMessage = 0
-	const messageTypeClose = 2
+    const messageTypeMessage = 0
+    const messageTypeClose = 2
+    let closeSessionQueue = [];
+    let closedSpiderTrigger = util.triggWaiter()
 
-    let sessions = {}
-
-    let exposedFunctions = {
+    let exposedSpiderFunctions = {
         onerror: (e) => console.debug('onerror message: '+e),
         close: close,
         getConnUrl: function(){return connUrl},
@@ -33,12 +33,17 @@ export async function createSpiderSocket(url, listener){
             spiderSend( new Uint8Array( [sessionId, messageTypeMessage, ...payload]) )
         }
 
-        function close(){
-            spiderSend( new Uint8Array( [sessionId, messageTypeClose]) )
-            exposedFunctions.onclose()
+        async function close(){
+            exposedInnerFunctions.readyState = CLOSING;
+            spiderSend( new Uint8Array( [sessionId, messageTypeClose]) );
+            let doneTrigger = util.triggWaiter();
+            closeSessionQueue.push({sessionId, doneTrigger});
+            await doneTrigger.waiter(1000);
+            exposedInnerFunctions.readyState = CLOSED;
+            exposedInnerFunctions.onclose();
         }
 
-        let exposedFunctions = {
+        let exposedInnerFunctions = {
             onopen: () => console.debug('onopen sID: '+sessionId),
             onerror:  (e) => console.debug('onerror sID: '+sessionId+' message: '+e),
             onclose: (event) => console.debug('onclose sID: '+sessionId+' event: '+event),
@@ -52,16 +57,26 @@ export async function createSpiderSocket(url, listener){
             readyState: CONNECTING
         };
 
-        exposedFunctions.readyState = OPEN;
-        exposedFunctions.onopen();
+        exposedInnerFunctions.readyState = OPEN;
+        exposedInnerFunctions.onopen();
 
-        return exposedFunctions
+        return exposedInnerFunctions
     }
 
     async function handleReceive(){
-        exposedFunctions.readyState = OPEN;
-        while (exposedFunctions.readyState == OPEN){
-            let message = await hostConn.receive(100);
+        let sessions = {}
+        exposedSpiderFunctions.readyState = OPEN;
+        while (hostConn.readyState == hostConn.OPEN){
+            let message = await hostConn.receive(50);
+
+            while (closeSessionQueue.length != 0) {
+                let {sessionId, doneTrigger} = closeSessionQueue.shift();
+                if (sessions[sessionId] != null) {
+                    delete sessions[sessionId];
+                }
+                doneTrigger.trigg();
+            }
+
             if (message == null){
                 continue;
             }
@@ -73,45 +88,52 @@ export async function createSpiderSocket(url, listener){
             }
             let messageType = message[1];
             switch(messageType) {
-                    case messageTypeNew:
-                        // ToDo Check for sessionId occupied
+                case messageTypeNew:
+                    if (sessions[sessionId] != null) {
+                        console.warn('New session id occupied: '+sessionId);
+                    }
+                    else {
                         let session = createSocket(sessionId);
                         sessions[sessionId] = session;
                         listener(session);
-                        break;
-                    case messageTypeMessage:
-                        // ToDo Check for exist
+                    }
+                    break;
+                case messageTypeMessage:
+                    if (sessions[sessionId] == null) {
+                        console.warn('On message missing session, Id: '+sessionId);
+                    }
+                    else {
                         let payload = message.slice(2);
                         sessions[sessionId].onmessage({data: payload});
-                        break;
-                    case messageTypeClose:
-                        // ToDo Check for exist
+                    }
+                    break;
+                case messageTypeClose:
+                    if (sessions[sessionId] != null) {
                         sessions[sessionId].readyState = CLOSED;
+                        sessions[sessionId].onclose();
                         delete sessions[sessionId];
-                        break;
-                    default:
-                        console.warn('Unknown message:');
-                        console.warn(message);
+                    }
+                    break;
+                default:
+                    console.warn('Unknown message:');
+                    console.warn(message);
             }
         }
-        exposedFunctions.readyState = CLOSED;
-        console.log('Closed')
+        exposedSpiderFunctions.readyState = CLOSED;
+        closedSpiderTrigger.trigg();
     }
 
     let hostConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(url));
-	let socketId = await hostConn.receive(50);
+    let socketId = await hostConn.receive(50);
     let connUrl = url + '/' + util.ab2hex(socketId);
 
-    function close() {
-		return new Promise(async function (resolve) {
-			console.log('Close')
-            exposedFunctions.readyState = CLOSING;
-            await hostConn.close();
-			resolve();
-		})
-	}
+    async function close() {
+        exposedSpiderFunctions.readyState = CLOSING;
+        await hostConn.close();
+        await closedSpiderTrigger.waiter(1000)
+    }
 
-    handleReceive()
+    handleReceive(hostConn)
 
-    return exposedFunctions;
+    return exposedSpiderFunctions;
 }

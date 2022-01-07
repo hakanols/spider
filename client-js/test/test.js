@@ -126,6 +126,7 @@ test('Test spider', async function (t) {
 	let message = new Uint8Array( [sessionId, messageTypeMessage, ...testMessage2]);
     hostConn.send(message)
 	let m3 = await clientConn.receive(200);
+	t.ok(m3 != null, "m3 is not null");
 	t.arrayEqual(m3, testMessage2, "M3 matching message");
 
 	await clientConn.close();
@@ -143,12 +144,15 @@ test('Test spider socket', async function (t) {
 
 	let ss = await spidersocket.createSpiderSocket(testServerUri,
 		(newSocket) => newSocketQueue.push(newSocket) );
+	t.equal(ss.readyState, ss.OPEN, "Spider Socket is open");
 	let connUrl = ss.getConnUrl()
 
 	let clientConn1 = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(connUrl));
 	let socket = await newSocketQueue.pull(1000);
 	t.ok(socket != null, 'Got a socket');
 	let hostSocket1 = asyncsocket.wrapWebsocket(socket)
+	t.equal(clientConn1.readyState, clientConn1.OPEN, "clientConn1 is open");
+	t.equal(hostSocket1.readyState, clientConn1.OPEN, "hostSocket1 is open");
 
 	let testMessage1 = util.hex2ab("deadbeef")
 	hostSocket1.send(testMessage1);
@@ -176,7 +180,15 @@ test('Test spider socket', async function (t) {
 	t.arrayEqual(m4, testMessage4, "M4 matching message");
 
 	await clientConn1.close();
-	await clientConn2.close();
+	t.equal(clientConn1.readyState, clientConn1.CLOSED, "clientConn1 is closed");
+	await util.sleep(50);
+	t.equal(hostSocket1.readyState, hostSocket1.CLOSED, "hostSocket1 is closed");
+	await hostSocket2.close();
+	t.equal(hostSocket2.readyState, hostSocket2.CLOSED, "hostSocket2 is closed")
+	await util.sleep(50);
+	t.equal(clientConn2.readyState, clientConn2.CLOSED, "clientConn2 is closed");;
+	
 	await ss.close();
+	t.equal(ss.readyState, ss.CLOSED, "Spider Socket is closed");
 	t.end();
 });
