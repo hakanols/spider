@@ -4,7 +4,7 @@
 
 * [Is Alive?](https://spider-8t2d6.ondigitalocean.app)
 * [Run testes in browser](https://hakanols.github.io/spider/client-js/test/runJs.html?file=test.js)
-* [Origional example](https://github.com/gorilla/websocket/tree/master/examples/chat)
+* [Chat example](https://hakanols.github.io/spider/client-js/chat_example.html)
 
 ## Testing on local host
 
@@ -17,9 +17,12 @@
 * Run Go from /
   * go run .
   * go test
+  
 * Run JS testes. Have a Spider server runing on localhost (go run .)
   * npm run test
-  * npm run test-browser
+  * npm run browser
+  * npm run chat
+
 * Local Docker
 
         docker build --rm -t spider .

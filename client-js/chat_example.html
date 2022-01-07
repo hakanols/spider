@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+    <html lang="en">
+        <head>
+        <title>Chat Example</title>
+        <script type="module">
+        import * as util from './lib/util.js';
+        import * as asyncsocket from './src/asyncsocket.js';
+        import * as spidersocket from './src/spidersocket.js';
+
+        window.onload = async function () {
+
+            const serverAddress = "wss://spider-8t2d6.ondigitalocean.app/net";
+            const msg = document.getElementById("msg");
+            const log = document.getElementById("log");
+            const linkItem = document.getElementById("link");
+            const decoder = new TextDecoder('UTF-8')
+            const encoder = new TextEncoder('UTF-8')
+            let clientConn;
+
+            msg.addEventListener("keyup", function(event) {
+                if (event.keyCode == 13) {
+                    event.preventDefault();
+                    window.sendMessage();
+                }
+            }); 
+
+            function printToPage(message){
+                let row = '<div>'+message+'</div>';
+                log.innerHTML += row
+            }
+
+            function setLink(link){
+                if (link != null){
+                    linkItem.innerHTML = '<a href=\"'+link+'\" target=\"_blank\">Open Chat twin</a>';
+                }
+                else{
+                    linkItem.innerHTML = '';
+                }
+            }
+
+            window.sendMessage = function(){
+                let text = msg.value;
+                if (clientConn && text) {
+                    let bytes = encoder.encode(text);
+                    clientConn.send(bytes);
+                    printToPage('Sent: '+text);
+                    msg.value = "";
+                }
+            }
+
+            const currentUrl = window.location;
+            const urlParams = new URLSearchParams(currentUrl.search)
+            if (urlParams.has('conn')){
+                const sessionId = urlParams.get('conn')
+                let wsUrl = serverAddress+'/'+sessionId
+                clientConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(wsUrl));
+             }
+            else {
+                let newSocketQueue = util.waitQueue();
+                let ss = await spidersocket.createSpiderSocket(serverAddress,
+		            (newSocket) => newSocketQueue.push(newSocket) );
+                let sessionId = ss.getConnUrl().split('/').slice(-1).pop()
+                console.log(sessionId);
+                setLink(currentUrl.origin+currentUrl.pathname+'?conn='+sessionId);
+                let socket;
+                while (true){
+                    socket = await newSocketQueue.pull(1000);
+                    if (socket != null){
+                        break;
+                    }
+                }
+                clientConn = asyncsocket.wrapWebsocket(socket)
+            }
+
+            setLink(null)
+            printToPage('Connected')
+            
+            while (true){
+                let bytes = await clientConn.receive(50);
+                if (bytes != null){
+                    let text = decoder.decode(bytes)
+                    printToPage('Received: '+text);
+                }
+            }
+        };
+        </script>
+    </head>
+    <body>
+        <div id="link"></div>
+        <div id="log"></div>
+        <div id="form">
+            <button type="button" onclick="sendMessage()">Submit</button>
+            <input type="text" id="msg" size="64" autofocus />
+        </div>
+    </body>
+</html>

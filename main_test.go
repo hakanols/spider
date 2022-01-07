@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBib(t *testing.T) {
+func TestSpider(t *testing.T) {
 
 	go main()
 
