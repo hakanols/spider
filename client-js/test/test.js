@@ -181,11 +181,11 @@ test('Test spider socket', async function (t) {
 
 	await clientConn1.close();
 	t.equal(clientConn1.readyState, clientConn1.CLOSED, "clientConn1 is closed");
-	await util.sleep(50);
+	await util.sleep(200);
 	t.equal(hostSocket1.readyState, hostSocket1.CLOSED, "hostSocket1 is closed");
 	await hostSocket2.close();
 	t.equal(hostSocket2.readyState, hostSocket2.CLOSED, "hostSocket2 is closed")
-	await util.sleep(50);
+	await util.sleep(200);
 	t.equal(clientConn2.readyState, clientConn2.CLOSED, "clientConn2 is closed");;
 	
 	await ss.close();
