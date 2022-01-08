@@ -67,7 +67,7 @@ export async function createSpiderSocket(url, listener){
         let sessions = {}
         exposedSpiderFunctions.readyState = OPEN;
         while (hostConn.readyState == hostConn.OPEN){
-            let message = await hostConn.receive(50);
+            let message = await hostConn.receive(100);
 
             while (closeSessionQueue.length != 0) {
                 let {sessionId, doneTrigger} = closeSessionQueue.shift();
@@ -124,7 +124,7 @@ export async function createSpiderSocket(url, listener){
     }
 
     let hostConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(url));
-    let socketId = await hostConn.receive(50);
+    let socketId = await hostConn.receive(200);
     let connUrl = url + '/' + util.ab2hex(socketId);
 
     async function close() {

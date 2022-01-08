@@ -85,10 +85,10 @@ test('Test queue', async function (t) {
 
 test('Test websocket sanity', async function (t) {
 	let hostConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(testServerUri));
-	let socketId = await hostConn.receive(50);
+	let socketId = await hostConn.receive(200);
 	console.log("Socket ID: " + socketId);
 
-	let nothing = await hostConn.receive(50);
+	let nothing = await hostConn.receive(200);
 	console.log("Got nothing?: " + nothing);
 
 	await hostConn.close();
@@ -101,7 +101,7 @@ test('Test spider', async function (t) {
 	const messageTypeClose = 2
 
 	let hostConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(testServerUri));
-	let socketId = await hostConn.receive(50);
+	let socketId = await hostConn.receive(200);
 	let clientAddress = testServerUri + '/' + util.ab2hex(socketId);
 	console.log("Host Address: " + clientAddress);
 	let clientConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(clientAddress));
