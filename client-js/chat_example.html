@@ -4,6 +4,7 @@
         <title>Chat Example</title>
         <script type="module">
         import * as util from './lib/util.js';
+        import qrcode from './lib/qrcode.js';
         import * as asyncsocket from './src/asyncsocket.js';
         import * as spidersocket from './src/spidersocket.js';
 
@@ -12,6 +13,7 @@
             const serverAddress = "wss://spider-8t2d6.ondigitalocean.app/net";
             const msg = document.getElementById("msg");
             const log = document.getElementById("log");
+            const lecode = document.getElementById("lecode");
             const linkItem = document.getElementById("link");
             const decoder = new TextDecoder('UTF-8')
             const encoder = new TextEncoder('UTF-8')
@@ -32,6 +34,10 @@
             function setLink(link){
                 if (link != null){
                     linkItem.innerHTML = '<a href=\"'+link+'\" target=\"_blank\">Open Chat twin</a>';
+                    const qr = new qrcode(0, 'H');
+                    qr.addData('This is my data');
+                    qr.make();
+                    lecode.innerHTML = qr.createSvgTag({});
                 }
                 else{
                     linkItem.innerHTML = '';
@@ -51,14 +57,18 @@
             const currentUrl = window.location;
             const urlParams = new URLSearchParams(currentUrl.search)
             if (urlParams.has('conn')){
+                printToPage('As client')
                 const sessionId = urlParams.get('conn')
                 let wsUrl = serverAddress+'/'+sessionId
                 clientConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(wsUrl));
              }
             else {
+                printToPage('As host')
                 let newSocketQueue = util.waitQueue();
+                printToPage('Created waitQueue')
                 let ss = await spidersocket.createSpiderSocket(serverAddress,
 		            (newSocket) => newSocketQueue.push(newSocket) );
+                printToPage('Opened Spider socket')
                 let sessionId = ss.getConnUrl().split('/').slice(-1).pop()
                 console.log(sessionId);
                 setLink(currentUrl.origin+currentUrl.pathname+'?conn='+sessionId);
@@ -87,6 +97,7 @@
     </head>
     <body>
         <div id="link">Chat example</div>
+        <div id="lecode" style="height: 200px; width: 200px;"></div>
         <div id="log"></div>
         <div id="form">
             <button type="button" onclick="sendMessage()">Submit</button>
