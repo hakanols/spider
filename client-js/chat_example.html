@@ -9,7 +9,7 @@
         import * as spidersocket from './src/spidersocket.js';
 
         window.onload = async function () {
-
+            printToPage('Start')
             const serverAddress = "wss://spider-8t2d6.ondigitalocean.app/net";
             const msg = document.getElementById("msg");
             const log = document.getElementById("log");
@@ -18,6 +18,7 @@
             const decoder = new TextDecoder('UTF-8')
             const encoder = new TextEncoder('UTF-8')
             let clientConn;
+            printToPage('Created all params')
 
             msg.addEventListener("keyup", function(event) {
                 if (event.keyCode == 13) {
@@ -54,6 +55,7 @@
                 }
             }
 
+            printToPage('Start conn')
             const currentUrl = window.location;
             const urlParams = new URLSearchParams(currentUrl.search)
             if (urlParams.has('conn')){
