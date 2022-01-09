@@ -8,17 +8,14 @@
         import * as asyncsocket from './src/asyncsocket.js';
         import * as spidersocket from './src/spidersocket.js';
 
-        console.log('Onload')
         const serverAddress = "wss://spider-8t2d6.ondigitalocean.app/net";
         const msg = document.getElementById("msg");
         const log = document.getElementById("log");
         const lecode = document.getElementById("lecode");
         const linkItem = document.getElementById("link");
-        printToPage('Before encode decode')
         const decoder = new TextDecoder('UTF-8')
         const encoder = new TextEncoder('UTF-8')
         let clientConn;
-        printToPage('Created all params')
 
         msg.addEventListener("keyup", function(event) {
             if (event.keyCode == 13) {
@@ -44,7 +41,7 @@
                 linkItem.innerHTML = '';
             }
         }
-        
+
         window.sendMessage = function(){
             let text = msg.value;
             if (clientConn && text) {
@@ -56,11 +53,11 @@
         }
 
         async function run() {
-            printToPage('Start conn')
             const currentUrl = window.location;
             const urlParams = new URLSearchParams(currentUrl.search)
             if (urlParams.has('conn')){
                 printToPage('As client')
+                lecode.hidden = true;
                 const sessionId = urlParams.get('conn')
                 let wsUrl = serverAddress+'/'+sessionId
                 clientConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(wsUrl));
@@ -68,10 +65,8 @@
             else {
                 printToPage('As host')
                 let newSocketQueue = util.waitQueue();
-                printToPage('Created waitQueue')
                 let ss = await spidersocket.createSpiderSocket(serverAddress,
 		            (newSocket) => newSocketQueue.push(newSocket) );
-                printToPage('Opened Spider socket')
                 let sessionId = ss.getConnUrl().split('/').slice(-1).pop()
                 console.log(sessionId);
                 setLink(currentUrl.origin+currentUrl.pathname+'?conn='+sessionId);
@@ -86,6 +81,7 @@
             }
 
             setLink(null)
+            lecode.hidden = true;
             printToPage('Connected')
             
             while (true){
