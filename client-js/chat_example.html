@@ -35,7 +35,7 @@
                 if (link != null){
                     linkItem.innerHTML = '<a href=\"'+link+'\" target=\"_blank\">Open Chat twin</a>';
                     const qr = new qrcode(0, 'H');
-                    qr.addData('This is my data');
+                    qr.addData(link);
                     qr.make();
                     lecode.innerHTML = qr.createSvgTag({});
                 }
