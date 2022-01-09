@@ -8,55 +8,54 @@
         import * as asyncsocket from './src/asyncsocket.js';
         import * as spidersocket from './src/spidersocket.js';
 
-        console.log('Loaded')
-        window.onload = async function () {
-            console.log('Onload')
-            const serverAddress = "wss://spider-8t2d6.ondigitalocean.app/net";
-            const msg = document.getElementById("msg");
-            const log = document.getElementById("log");
-            const lecode = document.getElementById("lecode");
-            const linkItem = document.getElementById("link");
-            printToPage('Before encode decode')
-            const decoder = new TextDecoder('UTF-8')
-            const encoder = new TextEncoder('UTF-8')
-            let clientConn;
-            printToPage('Created all params')
+        console.log('Onload')
+        const serverAddress = "wss://spider-8t2d6.ondigitalocean.app/net";
+        const msg = document.getElementById("msg");
+        const log = document.getElementById("log");
+        const lecode = document.getElementById("lecode");
+        const linkItem = document.getElementById("link");
+        printToPage('Before encode decode')
+        const decoder = new TextDecoder('UTF-8')
+        const encoder = new TextEncoder('UTF-8')
+        let clientConn;
+        printToPage('Created all params')
 
-            msg.addEventListener("keyup", function(event) {
-                if (event.keyCode == 13) {
-                    event.preventDefault();
-                    window.sendMessage();
-                }
-            }); 
-
-            function printToPage(message){
-                let row = '<div>'+message+'</div>';
-                log.innerHTML += row
+        msg.addEventListener("keyup", function(event) {
+            if (event.keyCode == 13) {
+                event.preventDefault();
+                window.sendMessage();
             }
+        });
 
-            function setLink(link){
-                if (link != null){
-                    linkItem.innerHTML = '<a href=\"'+link+'\" target=\"_blank\">Open Chat twin</a>';
-                    const qr = new qrcode(0, 'H');
-                    qr.addData(link);
-                    qr.make();
-                    lecode.innerHTML = qr.createSvgTag({});
-                }
-                else{
-                    linkItem.innerHTML = '';
-                }
+        function printToPage(message){
+            let row = '<div>'+message+'</div>';
+            log.innerHTML += row
+        }
+
+        function setLink(link){
+            if (link != null){
+                linkItem.innerHTML = '<a href=\"'+link+'\" target=\"_blank\">Open Chat twin</a>';
+                const qr = new qrcode(0, 'H');
+                qr.addData(link);
+                qr.make();
+                lecode.innerHTML = qr.createSvgTag({});
             }
-
-            window.sendMessage = function(){
-                let text = msg.value;
-                if (clientConn && text) {
-                    let bytes = encoder.encode(text);
-                    clientConn.send(bytes);
-                    printToPage('Sent: '+text);
-                    msg.value = "";
-                }
+            else{
+                linkItem.innerHTML = '';
             }
+        }
+        
+        window.sendMessage = function(){
+            let text = msg.value;
+            if (clientConn && text) {
+                let bytes = encoder.encode(text);
+                clientConn.send(bytes);
+                printToPage('Sent: '+text);
+                msg.value = "";
+            }
+        }
 
+        async function run() {
             printToPage('Start conn')
             const currentUrl = window.location;
             const urlParams = new URLSearchParams(currentUrl.search)
@@ -96,7 +95,9 @@
                     printToPage('Received: '+text);
                 }
             }
-        };
+        }
+
+        window.onload = run();
         </script>
     </head>
     <body>
