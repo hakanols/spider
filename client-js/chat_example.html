@@ -8,7 +8,9 @@
         import * as asyncsocket from './src/asyncsocket.js';
         import * as spidersocket from './src/spidersocket.js';
 
+        console.log('Loaded')
         window.onload = async function () {
+            console.log('Onload')
             const serverAddress = "wss://spider-8t2d6.ondigitalocean.app/net";
             const msg = document.getElementById("msg");
             const log = document.getElementById("log");
