@@ -41,27 +41,29 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-type Net struct {
-	register   chan *websocket.Conn
-	unregister chan byte
+type Host struct {
+	startClient       chan *websocket.Conn
+	closeClientSignal chan byte
 }
 
-func newNet() *Net {
-	return &Net{
-		register:   make(chan *websocket.Conn),
-		unregister: make(chan byte),
+func newHost() *Host {
+	return &Host{
+		startClient:       make(chan *websocket.Conn),
+		closeClientSignal: make(chan byte),
 	}
 }
 
 type Client struct {
-	clientChannel chan []byte
-	conn          *websocket.Conn
+	sendChannel chan []byte
+	closeSignal chan struct{}
+	conn        *websocket.Conn
 }
 
 func newClient(conn *websocket.Conn) *Client {
 	return &Client{
-		clientChannel: make(chan []byte, 256),
-		conn: conn,
+		sendChannel: make(chan []byte, 256),
+		closeSignal: make(chan struct{}),
+		conn:        conn,
 	}
 }
 
@@ -77,9 +79,10 @@ func createMessage(id byte, cmd byte) []byte {
 	return []byte{id, cmd}
 }
 
-func writePump(conn *websocket.Conn, channel chan []byte) {
+func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan struct{}) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
+		closeSignal <- struct{}{}
 		ticker.Stop()
 		conn.Close()
 	}()
@@ -106,69 +109,9 @@ func writePump(conn *websocket.Conn, channel chan []byte) {
 	}
 }
 
-func hostReadPump(conn *websocket.Conn, clientList *Mastermap, net *Net, closeSignal chan struct{}) {
+func readPump(conn *websocket.Conn, receiveChannel chan []byte, closeSignal chan struct{}) {
 	defer func() {
 		closeSignal <- struct{}{}
-		conn.Close()
-	}()
-	conn.SetReadLimit(maxMessageSize)
-	conn.SetReadDeadline(time.Now().Add(pongWait))
-	conn.SetPongHandler(func(string) error { conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
-	for {
-		_, message, err := conn.ReadMessage()
-		if err != nil {
-			if !websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("hostReadPump error: %v", err)
-			}
-			break
-		}
-
-		buf := bytes.NewBuffer(message)
-		id, err := buf.ReadByte()
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		item, ok := clientList.Get([]byte{id})
-		if !ok {
-			log.Println("Item missing: " + string(id))
-			return
-		}
-		client, ok := item.(Client)
-		if !ok {
-			log.Println("Not a Net object")
-			return
-		}
-		cmd, err := buf.ReadByte()
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		switch cmd { // ToDo pause event
-		case messageType:
-			data := make([]byte, 255)
-			len, err := buf.Read(data)
-			data = data[:len]
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			client.clientChannel <- data
-
-		case closeType:
-			client.conn.Close()
-			net.unregister <- id
-
-
-		default:
-			log.Println( fmt.Sprintf("Unknown byte: %x", cmd) )
-		}
-	}
-}
-
-func clientReadPump(conn *websocket.Conn, toHostChannel chan []byte, id byte, net *Net) {
-	defer func() {
-		net.unregister <- id
 		conn.Close()
 	}()
 	conn.SetReadLimit(maxMessageSize)
@@ -182,42 +125,84 @@ func clientReadPump(conn *websocket.Conn, toHostChannel chan []byte, id byte, ne
 			}
 			break
 		}
-		toHostChannel <- createMessageWithData(id, messageType, message)
+		receiveChannel <- message
 	}
 }
 
 func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 	clientList := NewMastermap(1)
-	toHostChannel := make(chan []byte, 256)
-	closeSignal := make(chan struct{})
-	net := newNet()
+	hostSendChannel := make(chan []byte, 256)	
+	hostReceiveChannel := make(chan []byte, 256)
+	closeHostSignal := make(chan struct{})
+	host := newHost()
 
-	go writePump(hostConn, toHostChannel)
-	go hostReadPump(hostConn, clientList, net, closeSignal)
+	go writePump(hostConn, hostSendChannel, closeHostSignal)
+	go readPump(hostConn, hostReceiveChannel, closeHostSignal)
 	
-	key := mm.Register(*net)
+	key := mm.Register(*host)
 	log.Println( fmt.Sprintf("New spider socket: %x", key) )
-	toHostChannel <- key[:]
+	hostSendChannel <- key[:]
 
 	loop:
 	for {
 		select {
-		case clientConn := <-net.register:
+
+		case clientConn := <-host.startClient:
 			client := newClient(clientConn)
 			id := clientList.Register(*client)
 			log.Println( fmt.Sprintf("New socket key: %x id: %x", key, id) )
-			toHostChannel <- createMessage(id[0], openType)
-			go clientReadPump(clientConn, toHostChannel, id[0], net)
-			go writePump(clientConn, client.clientChannel)
+			hostSendChannel <- createMessage(id[0], openType)
+			go runClient(client, hostSendChannel, host.closeClientSignal, id[0])
 
-		case id := <-net.unregister:
+		case id := <-host.closeClientSignal:
 			if (clientList.Has([]byte{id})){
-				toHostChannel <- createMessage(id, closeType)
+				hostSendChannel <- createMessage(id, closeType)
 				clientList.Unregister([]byte{id})
 				log.Println( fmt.Sprintf("Close socket key: %x id: %x", key, []byte{id}) )
 			}
 
-		case <- closeSignal:
+		case message := <-hostReceiveChannel:
+			buf := bytes.NewBuffer(message)
+			id, err := buf.ReadByte()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			item, ok := clientList.Get([]byte{id})
+			if !ok {
+				log.Println("Item missing: " + string(id))
+				return
+			}
+			client, ok := item.(Client)
+			if !ok {
+				log.Println("Not a Net object")
+				return
+			}
+			cmd, err := buf.ReadByte()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			switch cmd { // ToDo pause event
+				case messageType:
+					data := make([]byte, 255)
+					len, err := buf.Read(data)
+					data = data[:len]
+					if err != nil {
+						log.Println(err)
+						return
+					}
+					client.sendChannel <- data
+		
+				case closeType:
+					client.closeSignal <- struct{}{}
+					host.closeClientSignal <- id
+		
+				default:
+					log.Println( fmt.Sprintf("Unknown byte: %x", cmd) )
+			}
+
+		case <- closeHostSignal:
 		    break loop
 		}
 	}
@@ -225,7 +210,26 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
     log.Println( fmt.Sprintf("Close spider socket: %x", key ))
 }
 
-func serveNet(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
+func runClient(client *Client, hostSendChannel chan []byte, closeClientSignal chan byte, id byte) {
+	receiveChannel := make(chan []byte, 256)
+
+	go writePump(client.conn, client.sendChannel, client.closeSignal)
+	go readPump(client.conn, receiveChannel, client.closeSignal)
+	
+	loop:
+	for {
+		select {
+		case message := <-receiveChannel:
+			hostSendChannel <- createMessageWithData(id, messageType, message)
+
+		case <- client.closeSignal:
+			closeClientSignal <- id
+		    break loop
+		}
+	}
+}
+
+func serveHost(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -235,7 +239,7 @@ func serveNet(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
 	go runHost(conn, mm)
 }
 
-func serveNets(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
+func serveClient(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
 	url := r.RequestURI
 	keyString := strings.Split(url, "/")[2]
 	key, err := hex.DecodeString(keyString)
@@ -248,7 +252,7 @@ func serveNets(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
 		log.Println("Can not find key " + keyString)
 		return
 	}
-	nav, ok := item.(Net)
+	host, ok := item.(Host)
 	if !ok {
 		log.Println("Not a Net object")
 		return
@@ -258,5 +262,5 @@ func serveNets(mm *Mastermap, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	nav.register <- conn
+	host.startClient <- conn
 }

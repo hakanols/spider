@@ -64,7 +64,7 @@ func TestMasterMap(t *testing.T) {
 	_, ok := goggi.Get(randKey)
 	assert.False(t, ok, "No item with that key")
 
-	item := newNet()
+	item := newHost()
 	goodKey := goggi.Register(item)
 	result, ok := goggi.Get(goodKey)
 	assert.True(t, ok, "Item with that key should exist")

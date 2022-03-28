@@ -39,7 +39,7 @@ test('Test async timeout', async function (t) {
 
 
 test('Test async triggWaiter', async function (t) {
-    let trigger = util.triggWaiter()
+	let trigger = util.triggWaiter()
 
 	let startTime = performance.now()
 	trigger.waiter(500)
@@ -50,15 +50,15 @@ test('Test async triggWaiter', async function (t) {
 	t.ok(performance.now() - startTime < 50, "Should go fast")
 
 	startTime = performance.now()
-    await trigger.waiter(500)
-    t.ok(450 < performance.now() - startTime, "Should go slow")
+	await trigger.waiter(500)
+	t.ok(450 < performance.now() - startTime, "Should go slow")
 
 	t.end();
 });
 
 test('Test queue', async function (t) {
 	let queue = util.waitQueue();
-    queue.push("gris");
+	queue.push("gris");
 	queue.push("svin");
 
 	t.equal(await queue.pull(50), "gris", "Got correct string 'gris'");
@@ -76,7 +76,7 @@ test('Test queue', async function (t) {
 	})
 	queue.push("galt")
 
-    await trigger.waiter(50); // Remove to expose error in queue
+	await trigger.waiter(50); // Remove to expose error in queue
 	queue.push("sugga");
 	t.equal(await queue.pull(50), "sugga", "Got correct string 'sugga'");
 
@@ -96,7 +96,7 @@ test('Test websocket sanity', async function (t) {
 });
 
 test('Test spider', async function (t) {
-    const messageTypeNew = 1
+	const messageTypeNew = 1
 	const messageTypeMessage = 0
 	const messageTypeClose = 2
 
@@ -110,7 +110,7 @@ test('Test spider', async function (t) {
 	t.ok(m1 != null, "m1 is not null");
 	let sessionId = m1[0];
 	console.log("Session id: " + util.ab2hex([sessionId]));
-    t.equal(m1[1], messageTypeNew, "Got new session");
+	t.equal(m1[1], messageTypeNew, "Got new session");
 
 	console.log("Got session id. Start 1s wait")
 	let testMessage1 = util.hex2ab("deadbeef")
@@ -124,7 +124,7 @@ test('Test spider', async function (t) {
 
 	let testMessage2 = util.hex2ab("feedcafe")
 	let message = new Uint8Array( [sessionId, messageTypeMessage, ...testMessage2]);
-    hostConn.send(message)
+	hostConn.send(message)
 	let m3 = await clientConn.receive(200);
 	t.ok(m3 != null, "m3 is not null");
 	t.arrayEqual(m3, testMessage2, "M3 matching message");
@@ -156,12 +156,12 @@ test('Test spider socket', async function (t) {
 
 	let testMessage1 = util.hex2ab("deadbeef")
 	hostSocket1.send(testMessage1);
-    let m1 = await clientConn1.receive(200);
+	let m1 = await clientConn1.receive(200);
 	t.arrayEqual(m1, testMessage1, "M1 matching message");
 
 	let testMessage2 = util.hex2ab("feedcafe");
 	clientConn1.send(testMessage2);
-    let m2 = await hostSocket1.receive(200);
+	let m2 = await hostSocket1.receive(200);
 	t.arrayEqual(m2, testMessage2, "M2 matching message");
 
 	let clientConn2 = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(connUrl));
@@ -171,12 +171,12 @@ test('Test spider socket', async function (t) {
 
 	let testMessage3 = util.hex2ab("01234567")
 	hostSocket2.send(testMessage3);
-    let m3 = await clientConn2.receive(200);
+	let m3 = await clientConn2.receive(200);
 	t.arrayEqual(m3, testMessage3, "M3 matching message");
 
 	let testMessage4 = util.hex2ab("89abcdef");
 	clientConn2.send(testMessage4);
-    let m4 = await hostSocket2.receive(200);
+	let m4 = await hostSocket2.receive(200);
 	t.arrayEqual(m4, testMessage4, "M4 matching message");
 
 	await clientConn1.close();
@@ -188,7 +188,15 @@ test('Test spider socket', async function (t) {
 	await util.sleep(200);
 	t.equal(clientConn2.readyState, clientConn2.CLOSED, "clientConn2 is closed");;
 	
+	let clientConn3 = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(connUrl));
+	socket = await newSocketQueue.pull(1000);
+	t.ok(socket != null, 'Got a socket');
+	let hostSocket3 = asyncsocket.wrapWebsocket(socket)
+	t.equal(clientConn3.readyState, clientConn3.OPEN, "clientConn3 is open");
+	t.equal(hostSocket3.readyState, clientConn3.OPEN, "hostSocket3 is open");
 	await ss.close();
 	t.equal(ss.readyState, ss.CLOSED, "Spider Socket is closed");
+	t.equal(clientConn3.readyState, clientConn3.CLOSED, "clientConn3 is close");
+	t.equal(hostSocket3.readyState, clientConn3.CLOSED, "hostSocket3 is close");
 	t.end();
 });

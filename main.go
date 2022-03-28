@@ -24,10 +24,10 @@ func main() {
 	http.HandleFunc("/", serveHello)
 
 	http.HandleFunc("/net/", func(w http.ResponseWriter, r *http.Request) {
-		serveNets(mm, w, r)
+		serveClient(mm, w, r)
 	})
 	http.HandleFunc("/net", func(w http.ResponseWriter, r *http.Request) {
-		serveNet(mm, w, r)
+		serveHost(mm, w, r)
 	})
 	log.Println("Starting on http://localhost:8080/")
 	err := http.ListenAndServe(*addr, nil)
