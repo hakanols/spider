@@ -175,7 +175,7 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 			}
 			client, ok := item.(Client)
 			if !ok {
-				log.Println("Not a Net object")
+				log.Println("Not a Client object")
 				return
 			}
 			cmd, err := buf.ReadByte()
@@ -203,6 +203,14 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 			}
 
 		case <- closeHostSignal:
+			for _, item := range clientList.items {
+				client, ok := item.(Client)
+				if !ok {
+					log.Println("Not a Client object")
+					return
+				}
+				client.closeSignal <- struct{}{}
+			}
 		    break loop
 		}
 	}
@@ -223,6 +231,7 @@ func runClient(client *Client, hostSendChannel chan []byte, closeClientSignal ch
 			hostSendChannel <- createMessageWithData(id, messageType, message)
 
 		case <- client.closeSignal:
+			client.conn.Close()
 			closeClientSignal <- id
 		    break loop
 		}
