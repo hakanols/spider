@@ -84,7 +84,6 @@ func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan struc
 	defer func() {
 		closeSignal <- struct{}{}
 		ticker.Stop()
-		conn.Close()
 	}()
 	for {
 		select {
@@ -112,7 +111,6 @@ func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan struc
 func readPump(conn *websocket.Conn, receiveChannel chan []byte, closeSignal chan struct{}) {
 	defer func() {
 		closeSignal <- struct{}{}
-		conn.Close()
 	}()
 	conn.SetReadLimit(maxMessageSize)
 	conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -121,7 +119,7 @@ func readPump(conn *websocket.Conn, receiveChannel chan []byte, closeSignal chan
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			if !websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("clientReadPump error: %v", err)
+				log.Printf("readPump error: %v", err)
 			}
 			break
 		}
@@ -149,16 +147,18 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 
 		case clientConn := <-host.startClient:
 			client := newClient(clientConn)
-			id := clientList.Register(*client)
-			log.Println( fmt.Sprintf("New socket key: %x id: %x", key, id) )
-			hostSendChannel <- createMessage(id[0], openType)
-			go runClient(client, hostSendChannel, host.closeClientSignal, id[0])
+			id := clientList.Register(*client)[0]
+			log.Println( fmt.Sprintf("New socket key: %x id: %x", key, []byte{id}) )
+			hostSendChannel <- createMessage(id, openType)
+			go runClient(client, hostSendChannel, host.closeClientSignal, id)
 
 		case id := <-host.closeClientSignal:
 			if (clientList.Has([]byte{id})){
 				hostSendChannel <- createMessage(id, closeType)
 				clientList.Unregister([]byte{id})
 				log.Println( fmt.Sprintf("Close socket key: %x id: %x", key, []byte{id}) )
+			}else{
+				log.Println( fmt.Sprintf("Could not find and close socket key: %x id: %x", key, []byte{id}) )
 			}
 
 		case message := <-hostReceiveChannel:
@@ -195,22 +195,30 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 					client.sendChannel <- data
 		
 				case closeType:
-					client.closeSignal <- struct{}{}
-					host.closeClientSignal <- id
+					go func(){
+						client.closeSignal <- struct{}{}
+					}()
 		
 				default:
 					log.Println( fmt.Sprintf("Unknown byte: %x", cmd) )
 			}
 
 		case <- closeHostSignal:
-			for _, item := range clientList.items {
+			for index, item := range clientList.items {
+				id := []byte(index)[0]
+				log.Println( fmt.Sprintf("Request close client: %x", []byte{id}))
+				hostSendChannel <- createMessage(id, closeType)
 				client, ok := item.(Client)
-				if !ok {
+				if ok {
+					go func(){
+						client.closeSignal <- struct{}{}
+					}()
+					
+				} else {
 					log.Println("Not a Client object")
-					return
-				}
-				client.closeSignal <- struct{}{}
+				}			
 			}
+			hostConn.Close()
 		    break loop
 		}
 	}
@@ -227,13 +235,13 @@ func runClient(client *Client, hostSendChannel chan []byte, closeClientSignal ch
 	loop:
 	for {
 		select {
-		case message := <-receiveChannel:
-			hostSendChannel <- createMessageWithData(id, messageType, message)
-
 		case <- client.closeSignal:
 			client.conn.Close()
 			closeClientSignal <- id
 		    break loop
+
+		case message := <-receiveChannel:
+			hostSendChannel <- createMessageWithData(id, messageType, message)
 		}
 	}
 }
