@@ -7,6 +7,7 @@ const CLOSING = 2;
 const CLOSED = 3;
 
 export async function createSpiderSocket(url, listener){
+    let sessions = {}
     const messageTypeNew = 1
     const messageTypeMessage = 0
     const messageTypeClose = 2
@@ -64,7 +65,6 @@ export async function createSpiderSocket(url, listener){
     }
 
     async function handleReceive(){
-        let sessions = {}
         exposedSpiderFunctions.readyState = OPEN;
         while (hostConn.readyState == hostConn.OPEN){
             let message = await hostConn.receive(100);
@@ -129,6 +129,10 @@ export async function createSpiderSocket(url, listener){
 
     async function close() {
         exposedSpiderFunctions.readyState = CLOSING;
+        for (const sessionId in sessions) {
+            let session = sessions[sessionId]
+            session.close()
+        }
         await hostConn.close();
         await closedSpiderTrigger.waiter(1000)
     }
