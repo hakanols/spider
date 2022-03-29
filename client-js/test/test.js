@@ -185,7 +185,7 @@ test('Test spider socket', async function (t) {
 	t.equal(hostSocket1.readyState, hostSocket1.CLOSED, "hostSocket1 is closed");
 	await hostSocket2.close();
 	t.equal(hostSocket2.readyState, hostSocket2.CLOSED, "hostSocket2 is closed")
-	await util.sleep(400);
+	await util.sleep(200);
 	t.equal(clientConn2.readyState, clientConn2.CLOSED, "clientConn2 is closed");;
 	
 	let clientConn3 = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(connUrl));
@@ -197,7 +197,7 @@ test('Test spider socket', async function (t) {
 	await ss.close();
 	t.equal(ss.readyState, ss.CLOSED, "Spider Socket is closed");
 	t.equal(hostSocket3.readyState, clientConn3.CLOSED, "hostSocket3 is close");
-	await util.sleep(400);
+	await util.sleep(200);
 	t.equal(clientConn3.readyState, clientConn3.CLOSED, "clientConn3 is close");
 	t.end();
 });

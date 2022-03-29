@@ -204,21 +204,20 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 			}
 
 		case <- closeHostSignal:
-			for index, item := range clientList.items {
-				id := []byte(index)[0]
-				log.Println( fmt.Sprintf("Request close client: %x", []byte{id}))
-				hostSendChannel <- createMessage(id, closeType)
-				client, ok := item.(Client)
-				if ok {
-					go func(){
+			go func(){
+				for index, item := range clientList.items {
+					id := []byte(index)[0]
+					log.Println( fmt.Sprintf("Request close client: %x", []byte{id}))
+					hostSendChannel <- createMessage(id, closeType)
+					client, ok := item.(Client)
+					if ok {
 						client.closeSignal <- struct{}{}
-					}()
-					
-				} else {
-					log.Println("Not a Client object")
-				}			
-			}
-			hostConn.Close()
+					} else {
+						log.Println("Not a Client object")
+					}			
+				}
+				hostConn.Close()
+			}()
 		    break loop
 		}
 	}
