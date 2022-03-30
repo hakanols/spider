@@ -49,7 +49,7 @@ type Host struct {
 func newHost() *Host {
 	return &Host{
 		startClient:       make(chan *websocket.Conn),
-		closeClientSignal: make(chan byte),
+		closeClientSignal: make(chan byte, 64),
 	}
 }
 
@@ -62,7 +62,7 @@ type Client struct {
 func newClient(conn *websocket.Conn) *Client {
 	return &Client{
 		sendChannel: make(chan []byte, 256),
-		closeSignal: make(chan struct{}),
+		closeSignal: make(chan struct{}, 8),
 		conn:        conn,
 	}
 }
@@ -79,7 +79,7 @@ func createMessage(id byte, cmd byte) []byte {
 	return []byte{id, cmd}
 }
 
-func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan struct{}) {
+func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan<- struct{}) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		closeSignal <- struct{}{}
@@ -90,7 +90,6 @@ func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan struc
 		case message, ok := <-channel:
 			conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// The hub closed the channel.
 				conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -108,9 +107,9 @@ func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan struc
 	}
 }
 
-func readPump(conn *websocket.Conn, receiveChannel chan []byte, closeSignal chan struct{}) {
+func readPump(conn *websocket.Conn, receiveChannel chan []byte) {
 	defer func() {
-		closeSignal <- struct{}{}
+		close(receiveChannel)
 	}()
 	conn.SetReadLimit(maxMessageSize)
 	conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -129,22 +128,34 @@ func readPump(conn *websocket.Conn, receiveChannel chan []byte, closeSignal chan
 
 func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 	clientList := NewMastermap(1)
+	host := newHost()
+	key := mm.Register(*host)
+	defer func() {
+		mm.Unregister(key)
+		log.Println( fmt.Sprintf("Close spider socket: %x", key ))
+		hostConn.Close()
+		for _, item := range clientList.items {
+			client, ok := item.(Client)
+			if ok {
+				go func(){
+					client.closeSignal <- struct{}{}
+				}()
+			}			
+		}
+	}()
 	hostSendChannel := make(chan []byte, 256)	
 	hostReceiveChannel := make(chan []byte, 256)
-	closeHostSignal := make(chan struct{})
-	host := newHost()
-
-	go writePump(hostConn, hostSendChannel, closeHostSignal)
-	go readPump(hostConn, hostReceiveChannel, closeHostSignal)
+	closeHostSignal := make(chan struct{}, 8)
 	
-	key := mm.Register(*host)
+	go writePump(hostConn, hostSendChannel, closeHostSignal)
+	go readPump(hostConn, hostReceiveChannel)
+	
+	
 	log.Println( fmt.Sprintf("New spider socket: %x", key) )
 	hostSendChannel <- key[:]
 
-	loop:
 	for {
 		select {
-
 		case clientConn := <-host.startClient:
 			client := newClient(clientConn)
 			id := clientList.Register(*client)[0]
@@ -161,7 +172,10 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 				log.Println( fmt.Sprintf("Could not find and close socket key: %x id: %x", key, []byte{id}) )
 			}
 
-		case message := <-hostReceiveChannel:
+		case message, ok := <-hostReceiveChannel:
+			if !ok {
+				return
+			}
 			buf := bytes.NewBuffer(message)
 			id, err := buf.ReadByte()
 			if err != nil {
@@ -204,42 +218,35 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 			}
 
 		case <- closeHostSignal:
-			go func(){
-				for index, item := range clientList.items {
-					id := []byte(index)[0]
-					log.Println( fmt.Sprintf("Request close client: %x", []byte{id}))
-					hostSendChannel <- createMessage(id, closeType)
-					client, ok := item.(Client)
-					if ok {
-						client.closeSignal <- struct{}{}
-					} else {
-						log.Println("Not a Client object")
-					}			
-				}
-				hostConn.Close()
-			}()
-		    break loop
+			for index := range clientList.items {
+				id := []byte(index)[0]
+				log.Println( fmt.Sprintf("Request close client: %x", []byte{id}))
+				hostSendChannel <- createMessage(id, closeType)
+			}
+		    return
 		}
 	}
-	mm.Unregister(key)
-    log.Println( fmt.Sprintf("Close spider socket: %x", key ))
 }
 
-func runClient(client *Client, hostSendChannel chan []byte, closeClientSignal chan byte, id byte) {
+func runClient(client *Client, hostSendChannel chan<- []byte, closeClientSignal chan<- byte, id byte) {
+	defer func() {
+		client.conn.Close()
+		closeClientSignal <- id
+	}()
 	receiveChannel := make(chan []byte, 256)
 
 	go writePump(client.conn, client.sendChannel, client.closeSignal)
-	go readPump(client.conn, receiveChannel, client.closeSignal)
+	go readPump(client.conn, receiveChannel)
 	
-	loop:
 	for {
 		select {
 		case <- client.closeSignal:
-			client.conn.Close()
-			closeClientSignal <- id
-		    break loop
+		    return
 
-		case message := <-receiveChannel:
+		case message, ok := <-receiveChannel:
+			if !ok {
+				return
+			}
 			hostSendChannel <- createMessageWithData(id, messageType, message)
 		}
 	}
