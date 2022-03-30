@@ -137,9 +137,7 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 		for _, item := range clientList.items {
 			client, ok := item.(Client)
 			if ok {
-				go func(){
-					client.closeSignal <- struct{}{}
-				}()
+				client.closeSignal <- struct{}{}
 			}			
 		}
 	}()
@@ -209,9 +207,7 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 					client.sendChannel <- data
 		
 				case closeType:
-					go func(){
-						client.closeSignal <- struct{}{}
-					}()
+					client.closeSignal <- struct{}{}
 		
 				default:
 					log.Println( fmt.Sprintf("Unknown byte: %x", cmd) )
