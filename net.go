@@ -219,10 +219,16 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 
 		case <- closeHostSignal:	
 			closeHostSignal <- struct{}{}
-			for index := range clientList.items {
+			for index, item := range clientList.items {
 				id := []byte(index)[0]
-				log.Println( fmt.Sprintf("Spider socket %x request close client: %x", key, []byte{id}))
+				log.Println( fmt.Sprintf("Spider socket %x request close client: %x", key, []byte{id}) )
 				hostSendChannel <- createMessage(id, closeType)
+				client, ok := item.(Client)
+				if !ok {
+					log.Println("Not a Client object")
+				} else {
+					client.closeSignal <- struct{}{}
+				}
 			}
 		    return
 		}
