@@ -107,8 +107,9 @@ func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan<- str
 	}
 }
 
-func readPump(conn *websocket.Conn, receiveChannel chan []byte) {
+func readPump(conn *websocket.Conn, receiveChannel chan []byte, closeSignal chan<- struct{}) {
 	defer func() {
+		closeSignal <- struct{}{}
 		close(receiveChannel)
 	}()
 	conn.SetReadLimit(maxMessageSize)
@@ -146,8 +147,7 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 	closeHostSignal := make(chan struct{}, 8)
 	
 	go writePump(hostConn, hostSendChannel, closeHostSignal)
-	go readPump(hostConn, hostReceiveChannel)
-	
+	go readPump(hostConn, hostReceiveChannel, closeHostSignal)
 	
 	log.Println( fmt.Sprintf("New spider socket: %x", key) )
 	hostSendChannel <- key[:]
@@ -216,7 +216,7 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 		case <- closeHostSignal:
 			for index := range clientList.items {
 				id := []byte(index)[0]
-				log.Println( fmt.Sprintf("Request close client: %x", []byte{id}))
+				log.Println( fmt.Sprintf("Spider socket %x request close client: %x", key, []byte{id}))
 				hostSendChannel <- createMessage(id, closeType)
 			}
 		    return
@@ -232,7 +232,7 @@ func runClient(client *Client, hostSendChannel chan<- []byte, closeClientSignal 
 	receiveChannel := make(chan []byte, 256)
 
 	go writePump(client.conn, client.sendChannel, client.closeSignal)
-	go readPump(client.conn, receiveChannel)
+	go readPump(client.conn, receiveChannel, client.closeSignal)
 	
 	for {
 		select {
