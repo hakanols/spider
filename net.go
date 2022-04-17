@@ -79,7 +79,7 @@ func createMessage(id byte, cmd byte) []byte {
 	return []byte{id, cmd}
 }
 
-func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan<- struct{}) {
+func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan struct{}) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		closeSignal <- struct{}{}
@@ -87,6 +87,9 @@ func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan<- str
 	}()
 	for {
 		select {
+		case <- closeSignal:
+		    return
+			
 		case message, ok := <-channel:
 			conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
@@ -98,6 +101,7 @@ func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan<- str
 			if err != nil {
 				return
 			}
+
 		case <-ticker.C:
 			conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
@@ -213,7 +217,8 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 					log.Println( fmt.Sprintf("Unknown byte: %x", cmd) )
 			}
 
-		case <- closeHostSignal:
+		case <- closeHostSignal:	
+			closeHostSignal <- struct{}{}
 			for index := range clientList.items {
 				id := []byte(index)[0]
 				log.Println( fmt.Sprintf("Spider socket %x request close client: %x", key, []byte{id}))
@@ -237,6 +242,7 @@ func runClient(client *Client, hostSendChannel chan<- []byte, closeClientSignal 
 	for {
 		select {
 		case <- client.closeSignal:
+			client.closeSignal <- struct{}{}
 		    return
 
 		case message, ok := <-receiveChannel:
