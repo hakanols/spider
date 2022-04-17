@@ -120,7 +120,6 @@ test('Test spider', async function (t) {
 	t.equal(m2[0], sessionId1, "Matching session id");
 	t.equal(m2[1], messageTypeMessage, "Got new message");
 	t.arrayEqual(m2.slice(2), testMessage1, "M2 matching message");
-	console.log("M2 received. Start 1s wait")
 
 	let testMessage2 = util.hex2ab("feedcafe")
 	let message = new Uint8Array( [sessionId1, messageTypeMessage, ...testMessage2]);
@@ -136,12 +135,11 @@ test('Test spider', async function (t) {
 	t.arrayEqual(m4[1], messageTypeClose, "Got session close");
 
 	let clientConn2 = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(clientAddress));
-
 	let m11 = await hostConn.receive(200);
-	t.ok(m11 != null, "m1 is not null");
+	t.ok(m11 != null, "m11 is not null");
 	let sessionId2 = m11[0];
 	console.log("Session id: " + util.ab2hex([sessionId2]));
-	t.equal(m1[1], messageTypeNew, "Got new session");
+	t.equal(m11[1], messageTypeNew, "Got new session");
 
 	await hostConn.close();
 
