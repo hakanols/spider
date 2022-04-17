@@ -104,38 +104,50 @@ test('Test spider', async function (t) {
 	let socketId = await hostConn.receive(200);
 	let clientAddress = testServerUri + '/' + util.ab2hex(socketId);
 	console.log("Host Address: " + clientAddress);
-	let clientConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(clientAddress));
+	let clientConn1 = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(clientAddress));
 
 	let m1 = await hostConn.receive(200);
 	t.ok(m1 != null, "m1 is not null");
-	let sessionId = m1[0];
-	console.log("Session id: " + util.ab2hex([sessionId]));
+	let sessionId1 = m1[0];
+	console.log("Session id: " + util.ab2hex([sessionId1]));
 	t.equal(m1[1], messageTypeNew, "Got new session");
 
 	console.log("Got session id. Start 1s wait")
 	let testMessage1 = util.hex2ab("deadbeef")
-	clientConn.send(testMessage1)
+	clientConn1.send(testMessage1)
 	let m2 = await hostConn.receive(200);
 	t.ok(m2 != null, "m2 is not null");
-	t.equal(m2[0], sessionId, "Matching session id");
+	t.equal(m2[0], sessionId1, "Matching session id");
 	t.equal(m2[1], messageTypeMessage, "Got new message");
 	t.arrayEqual(m2.slice(2), testMessage1, "M2 matching message");
 	console.log("M2 received. Start 1s wait")
 
 	let testMessage2 = util.hex2ab("feedcafe")
-	let message = new Uint8Array( [sessionId, messageTypeMessage, ...testMessage2]);
+	let message = new Uint8Array( [sessionId1, messageTypeMessage, ...testMessage2]);
 	hostConn.send(message)
-	let m3 = await clientConn.receive(200);
+	let m3 = await clientConn1.receive(200);
 	t.ok(m3 != null, "m3 is not null");
 	t.arrayEqual(m3, testMessage2, "M3 matching message");
 
-	await clientConn.close();
+	await clientConn1.close();
 	let m4 = await hostConn.receive(200);
 	t.ok(m4 != null, "m4 is not null");
-	t.arrayEqual(m4[0], sessionId, "Matching session id");
+	t.arrayEqual(m4[0], sessionId1, "Matching session id");
 	t.arrayEqual(m4[1], messageTypeClose, "Got session close");
 
+	let clientConn2 = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(clientAddress));
+
+	let m11 = await hostConn.receive(200);
+	t.ok(m11 != null, "m1 is not null");
+	let sessionId2 = m11[0];
+	console.log("Session id: " + util.ab2hex([sessionId2]));
+	t.equal(m1[1], messageTypeNew, "Got new session");
+
 	await hostConn.close();
+
+	await util.sleep(200);
+	t.equal(clientConn2.readyState, clientConn2.CLOSED, "clientConn2 is close");
+
 	t.end();
 });
 
