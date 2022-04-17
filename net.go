@@ -125,7 +125,7 @@ func readPump(conn *websocket.Conn, receiveChannel chan []byte, closeSignal chan
 			if !websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("readPump error: %v", err)
 			}
-			break
+			return
 		}
 		receiveChannel <- message
 	}
@@ -253,7 +253,7 @@ func runClient(client *Client, hostSendChannel chan<- []byte, closeClientSignal 
 	for {
 		select {
 		case <- client.closeSignal:
-			client.closeSignal <- struct{}{}
+			log.Println( fmt.Sprintf("Closing client socket: %x", []byte{id}) )
 		    return
 
 		case message, ok := <-receiveChannel:

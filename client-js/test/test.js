@@ -185,6 +185,7 @@ test('Test spider close', async function (t) {
 	t.arrayEqual(m22[1], messageTypeClose, "Got session close");
 	t.equal(clientConn2.readyState, clientConn2.CLOSED, "clientConn2 is close");
 	
+	console.log("Close host socket");
 	await hostConn.close();
 	await util.sleep(200);
 	t.equal(clientConn3.readyState, clientConn3.CLOSED, "clientConn3 is close");
