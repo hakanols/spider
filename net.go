@@ -79,7 +79,7 @@ func createMessage(id byte, cmd byte) []byte {
 	return []byte{id, cmd}
 }
 
-func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan struct{}) {
+func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan<- struct{}, killWritePump <-chan struct{}) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		closeSignal <- struct{}{}
@@ -87,7 +87,7 @@ func writePump(conn *websocket.Conn, channel chan []byte, closeSignal chan struc
 	}()
 	for {
 		select {
-		case <- closeSignal:
+		case <- killWritePump:
 		    return
 			
 		case message, ok := <-channel:
@@ -135,6 +135,8 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 	clientList := NewMastermap(1)
 	host := newHost()
 	key := mm.Register(*host)
+	killWritePump := make(chan struct{})
+
 	defer func() {
 		mm.Unregister(key)
 		log.Println( fmt.Sprintf("Close spider socket: %x", key ))
@@ -145,12 +147,13 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 				client.closeSignal <- struct{}{}
 			}			
 		}
+		killWritePump <- struct{}{}
 	}()
 	hostSendChannel := make(chan []byte, 256)	
 	hostReceiveChannel := make(chan []byte, 256)
 	closeHostSignal := make(chan struct{}, 8)
 	
-	go writePump(hostConn, hostSendChannel, closeHostSignal)
+	go writePump(hostConn, hostSendChannel, closeHostSignal, killWritePump)
 	go readPump(hostConn, hostReceiveChannel, closeHostSignal)
 	
 	log.Println( fmt.Sprintf("New spider socket: %x", key) )
@@ -236,13 +239,15 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 }
 
 func runClient(client *Client, hostSendChannel chan<- []byte, closeClientSignal chan<- byte, id byte) {
+	killWritePump := make(chan struct{})
 	defer func() {
 		client.conn.Close()
 		closeClientSignal <- id
+		killWritePump <- struct{}{}
 	}()
 	receiveChannel := make(chan []byte, 256)
 
-	go writePump(client.conn, client.sendChannel, client.closeSignal)
+	go writePump(client.conn, client.sendChannel, client.closeSignal, killWritePump)
 	go readPump(client.conn, receiveChannel, client.closeSignal)
 	
 	for {
