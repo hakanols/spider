@@ -246,13 +246,21 @@ test('Test spider socket', async function (t) {
 	let m4 = await hostSocket2.receive(200);
 	t.arrayEqual(m4, testMessage4, "M4 matching message");
 
+	let closeQueue = util.waitQueue();
+
+	hostSocket1.onclose = () => closeQueue.push("hostSocket1")
 	await clientConn1.close();
+	let closeString = await closeQueue.pull(4000);
+	hostSocket1.onclose = () => {}
+	t.equal(closeString, "hostSocket1", "Close wait for: hostSocket1");
 	t.equal(clientConn1.readyState, clientConn1.CLOSED, "clientConn1 is closed");
-	await util.sleep(200);
 	t.equal(hostSocket1.readyState, hostSocket1.CLOSED, "hostSocket1 is closed");
+
+	clientConn2.onclose = () => closeQueue.push("clientConn2")
 	await hostSocket2.close();
+	closeString = await closeQueue.pull(4000);
+	t.equal(closeString, "clientConn2", "Close wait for: clientConn2");
 	t.equal(hostSocket2.readyState, hostSocket2.CLOSED, "hostSocket2 is closed")
-	await util.sleep(200);
 	t.equal(clientConn2.readyState, clientConn2.CLOSED, "clientConn2 is closed");;
 	
 	let clientConn3 = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(connUrl));
@@ -261,10 +269,14 @@ test('Test spider socket', async function (t) {
 	let hostSocket3 = asyncsocket.wrapWebsocket(socket)
 	t.equal(clientConn3.readyState, clientConn3.OPEN, "clientConn3 is open");
 	t.equal(hostSocket3.readyState, clientConn3.OPEN, "hostSocket3 is open");
+
+	clientConn3.onclose = () => closeQueue.push("clientConn3");
 	await ss.close();
+	closeString = await closeQueue.pull(4000);
+	t.equal(closeString, "clientConn3", "Close wait for: clientConn3");
 	t.equal(ss.readyState, ss.CLOSED, "Spider Socket is closed");
 	t.equal(hostSocket3.readyState, clientConn3.CLOSED, "hostSocket3 is close");
-	await util.sleep(200);
 	t.equal(clientConn3.readyState, clientConn3.CLOSED, "clientConn3 is close");
+
 	t.end();
 });
