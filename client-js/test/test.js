@@ -180,7 +180,7 @@ test('Test spider close', async function (t) {
 	t.ok(m12 != null, "m12 is not null");
 	t.arrayEqual(m12[0], sessionId1, "Matching session id");
 	t.arrayEqual(m12[1], messageTypeClose, "Got session close");
-	let closeString = await closeQueue.pull(1000);
+	let closeString = await closeQueue.pull(4000);
 	t.equal(closeString, "clientConn1", "Close wait for: clientConn1");
 	t.equal(clientConn1.readyState, clientConn1.CLOSED, "clientConn1 is close");
 
@@ -191,14 +191,14 @@ test('Test spider close', async function (t) {
 	t.ok(m22 != null, "m12 is not null");
 	t.arrayEqual(m22[0], sessionId2, "Matching session id");
 	t.arrayEqual(m22[1], messageTypeClose, "Got session close");
-	closeString = await closeQueue.pull(1000);
+	closeString = await closeQueue.pull(4000);
 	t.equal(closeString, "clientConn2", "Close wait for: clientConn2");
 	t.equal(clientConn2.readyState, clientConn2.CLOSED, "clientConn2 is close");
 	
 	clientConn3.onclose = () => closeQueue.push("clientConn3")
 	console.log("Close host socket");
 	await hostConn.close();
-	closeString = await closeQueue.pull(1000);
+	closeString = await closeQueue.pull(4000);
 	t.equal(closeString, "clientConn3", "Close wait for: clientConn3");
 	t.equal(clientConn3.readyState, clientConn3.CLOSED, "clientConn3 is close");
 	t.equal(hostConn.readyState, hostConn.CLOSED, "hostConn is close");
