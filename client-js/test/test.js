@@ -169,25 +169,37 @@ test('Test spider close', async function (t) {
 	console.log("Session id: " + util.ab2hex([sessionId3]));
 	t.equal(m31[1], messageTypeNew, "Got new session");
 
+	/////////// Setup Done ///////////////////////
+
+	let closeQueue = util.waitQueue();
+
+	clientConn1.onclose = () => closeQueue.push("clientConn1")
 	console.log("Send close from host on id: " + util.ab2hex([sessionId1]));
 	hostConn.send(new Uint8Array( [sessionId1, messageTypeClose] ));
 	let m12 = await hostConn.receive(200);
 	t.ok(m12 != null, "m12 is not null");
 	t.arrayEqual(m12[0], sessionId1, "Matching session id");
 	t.arrayEqual(m12[1], messageTypeClose, "Got session close");
+	let closeString = await closeQueue.pull(1000);
+	t.equal(closeString, "clientConn1", "Close wait for: clientConn1");
 	t.equal(clientConn1.readyState, clientConn1.CLOSED, "clientConn1 is close");
 
+	clientConn2.onclose = () => closeQueue.push("clientConn2")
 	console.log("Client closed with id: " + util.ab2hex([sessionId2]));
 	await clientConn2.close();
 	let m22 = await hostConn.receive(200);
 	t.ok(m22 != null, "m12 is not null");
 	t.arrayEqual(m22[0], sessionId2, "Matching session id");
 	t.arrayEqual(m22[1], messageTypeClose, "Got session close");
+	closeString = await closeQueue.pull(1000);
+	t.equal(closeString, "clientConn2", "Close wait for: clientConn2");
 	t.equal(clientConn2.readyState, clientConn2.CLOSED, "clientConn2 is close");
 	
+	clientConn3.onclose = () => closeQueue.push("clientConn3")
 	console.log("Close host socket");
 	await hostConn.close();
-	await util.sleep(200);
+	closeString = await closeQueue.pull(1000);
+	t.equal(closeString, "clientConn3", "Close wait for: clientConn3");
 	t.equal(clientConn3.readyState, clientConn3.CLOSED, "clientConn3 is close");
 	t.equal(hostConn.readyState, hostConn.CLOSED, "hostConn is close");
 
