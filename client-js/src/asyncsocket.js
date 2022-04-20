@@ -48,7 +48,7 @@ export function wrapWebsocket(webSocket){
 	}
 
 	async function receive(waitTime){
-		return readQueue.pull(waitTime);
+		return (await readQueue.pull(waitTime))[0];
 	}
 
 	function send(message){

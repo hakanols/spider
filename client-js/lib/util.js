@@ -99,14 +99,17 @@ export function runWithTimeout(prom, time) {
 
 export function triggWaiter(){
     let trigger = null;
-	function waiter(waitTime){
-		return Promise.race([
+
+	async function waiter(waitTime){
+		let startTime = performance.now()
+		await Promise.race([
 			new Promise(function(resolve){
 				trigger = resolve;
 			}),
 			sleep(waitTime)
 		])
-		.finally(() => trigger = null);
+		trigger = null;
+		return performance.now() - startTime
 	}
 
 	function trigg(){
@@ -114,6 +117,7 @@ export function triggWaiter(){
 			trigger()
 		}
 	}
+
 	return {
 		waiter: waiter,
 		trigg: trigg
@@ -127,14 +131,14 @@ export function waitQueue(){
 	async function pull(waitTime){
 		let data = queue.shift();
 		if (data != undefined){
-			return data;
+			return [data, 0];
 		}
-		await trigger.waiter(waitTime)
+		let delay = await trigger.waiter(waitTime)
 		data = queue.shift()
 		if (data != undefined){
-            return data;
+            return [data, delay];
 		}
-		return null
+		return [null, waitTime]
 	}
 
 	function push(data) {

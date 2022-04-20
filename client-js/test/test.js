@@ -43,15 +43,17 @@ test('Test async triggWaiter', async function (t) {
 
 	let startTime = performance.now()
 	trigger.waiter(500)
-	.then(function(){
-		t.pass("Should happen")
+	.then(function(diff){	
+		console.debug("Trigger wait reports time: " + diff)
+		t.pass("Should happen");
 	})
-	trigger.trigg()
-	t.ok(performance.now() - startTime < 50, "Should go fast")
+	trigger.trigg();
+	t.ok(performance.now() - startTime < 50, "Should go fast");
 
-	startTime = performance.now()
-	await trigger.waiter(500)
-	t.ok(450 < performance.now() - startTime, "Should go slow")
+	startTime = performance.now();
+	let diff = await trigger.waiter(500);
+	console.debug("Trigger wait reports time: " + diff);
+	t.ok(450 < performance.now() - startTime, "Should go slow");
 
 	t.end();
 });
@@ -61,14 +63,15 @@ test('Test queue', async function (t) {
 	queue.push("gris");
 	queue.push("svin");
 
-	t.equal(await queue.pull(50), "gris", "Got correct string 'gris'");
-	t.equal(await queue.pull(50), "svin", "Got correct string 'svin'");
-	t.equal(await queue.pull(50), null, "Should time out");
+	t.equal((await queue.pull(50))[0], "gris", "Got correct string 'gris'");
+	t.equal((await queue.pull(50))[0], "svin", "Got correct string 'svin'");
+	t.equal((await queue.pull(50))[0], null, "Should time out");
 
 	let trigger = util.triggWaiter();
 	queue.pull(50)
-	.then(function(data){
+	.then(function([data, delay]){
 		t.equal(data, "galt", "Got correct string 'galt'");
+		console.debug("Pull returned after: " + delay)
 		trigger.trigg();
 	})
 	.catch(function(err){
@@ -78,7 +81,7 @@ test('Test queue', async function (t) {
 
 	await trigger.waiter(50); // Remove to expose error in queue
 	queue.push("sugga");
-	t.equal(await queue.pull(50), "sugga", "Got correct string 'sugga'");
+	t.equal((await queue.pull(50))[0], "sugga", "Got correct string 'sugga'");
 
 	t.end();
 });
@@ -180,7 +183,8 @@ test('Test spider close', async function (t) {
 	t.ok(m12 != null, "m12 is not null");
 	t.arrayEqual(m12[0], sessionId1, "Matching session id");
 	t.arrayEqual(m12[1], messageTypeClose, "Got session close");
-	let closeString = await closeQueue.pull(4000);
+	let [closeString, closeDelay] = await closeQueue.pull(4000);
+	console.debug('Time before received close: ' + closeDelay);
 	t.equal(closeString, "clientConn1", "Close wait for: clientConn1");
 	t.equal(clientConn1.readyState, clientConn1.CLOSED, "clientConn1 is close");
 
@@ -191,14 +195,16 @@ test('Test spider close', async function (t) {
 	t.ok(m22 != null, "m12 is not null");
 	t.arrayEqual(m22[0], sessionId2, "Matching session id");
 	t.arrayEqual(m22[1], messageTypeClose, "Got session close");
-	closeString = await closeQueue.pull(4000);
+	[closeString, closeDelay] = await closeQueue.pull(4000);
+	console.debug('Time before received close: ' + closeDelay);
 	t.equal(closeString, "clientConn2", "Close wait for: clientConn2");
 	t.equal(clientConn2.readyState, clientConn2.CLOSED, "clientConn2 is close");
 	
 	clientConn3.onclose = () => closeQueue.push("clientConn3")
 	console.log("Close host socket");
 	await hostConn.close();
-	closeString = await closeQueue.pull(4000);
+	[closeString, closeDelay] = await closeQueue.pull(4000);
+	console.debug('Time before received close: ' + closeDelay);
 	t.equal(closeString, "clientConn3", "Close wait for: clientConn3");
 	t.equal(clientConn3.readyState, clientConn3.CLOSED, "clientConn3 is close");
 	t.equal(hostConn.readyState, hostConn.CLOSED, "hostConn is close");
@@ -215,7 +221,8 @@ test('Test spider socket', async function (t) {
 	let connUrl = ss.getConnUrl()
 
 	let clientConn1 = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(connUrl));
-	let socket = await newSocketQueue.pull(1000);
+	let [socket, socketDelay] = await newSocketQueue.pull(1000);
+	console.debug('Time before received socket: ' + socketDelay);
 	t.ok(socket != null, 'Got a socket');
 	let hostSocket1 = asyncsocket.wrapWebsocket(socket)
 	t.equal(clientConn1.readyState, clientConn1.OPEN, "clientConn1 is open");
@@ -232,7 +239,8 @@ test('Test spider socket', async function (t) {
 	t.arrayEqual(m2, testMessage2, "M2 matching message");
 
 	let clientConn2 = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(connUrl));
-	socket = await newSocketQueue.pull(1000);
+	[socket, socketDelay] = await newSocketQueue.pull(1000);
+	console.debug('Time before received socket: ' + socketDelay);
 	t.ok(socket != null, 'Got a socket');
 	let hostSocket2 = asyncsocket.wrapWebsocket(socket)
 
@@ -250,7 +258,8 @@ test('Test spider socket', async function (t) {
 
 	hostSocket1.onclose = () => closeQueue.push("hostSocket1")
 	await clientConn1.close();
-	let closeString = await closeQueue.pull(4000);
+	let [closeString, closeDelay] = await closeQueue.pull(4000);
+	console.debug('Time before received close: ' + closeDelay);
 	hostSocket1.onclose = () => {}
 	t.equal(closeString, "hostSocket1", "Close wait for: hostSocket1");
 	t.equal(clientConn1.readyState, clientConn1.CLOSED, "clientConn1 is closed");
@@ -258,13 +267,15 @@ test('Test spider socket', async function (t) {
 
 	clientConn2.onclose = () => closeQueue.push("clientConn2")
 	await hostSocket2.close();
-	closeString = await closeQueue.pull(4000);
+	[closeString, closeDelay] = await closeQueue.pull(4000);
+	console.debug('Time before received close: ' + closeDelay);
 	t.equal(closeString, "clientConn2", "Close wait for: clientConn2");
 	t.equal(hostSocket2.readyState, hostSocket2.CLOSED, "hostSocket2 is closed")
 	t.equal(clientConn2.readyState, clientConn2.CLOSED, "clientConn2 is closed");;
 	
 	let clientConn3 = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(connUrl));
-	socket = await newSocketQueue.pull(1000);
+	[socket, socketDelay] = await newSocketQueue.pull(1000);
+	console.debug('Time before received socket: ' + socketDelay);
 	t.ok(socket != null, 'Got a socket');
 	let hostSocket3 = asyncsocket.wrapWebsocket(socket)
 	t.equal(clientConn3.readyState, clientConn3.OPEN, "clientConn3 is open");
@@ -272,7 +283,8 @@ test('Test spider socket', async function (t) {
 
 	clientConn3.onclose = () => closeQueue.push("clientConn3");
 	await ss.close();
-	closeString = await closeQueue.pull(4000);
+	[closeString, closeDelay] = await closeQueue.pull(4000);
+	console.debug('Time before received close: ' + closeDelay);
 	t.equal(closeString, "clientConn3", "Close wait for: clientConn3");
 	t.equal(ss.readyState, ss.CLOSED, "Spider Socket is closed");
 	t.equal(hostSocket3.readyState, clientConn3.CLOSED, "hostSocket3 is close");
