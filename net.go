@@ -136,22 +136,26 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 	host := newHost()
 	key := mm.Register(*host)
 	killWritePump := make(chan struct{})
+	hostSendChannel := make(chan []byte, 256)	
+	hostReceiveChannel := make(chan []byte, 256)
+	closeHostSignal := make(chan struct{}, 8)
 
 	defer func() {
 		mm.Unregister(key)
 		log.Println( fmt.Sprintf("Close spider socket: %x", key ))
-		hostConn.Close()
-		for _, item := range clientList.items {
+		for index, item := range clientList.items {
+			id := []byte(index)[0]
+			log.Println( fmt.Sprintf("Spider socket %x request close client: %x", key, []byte{id}) )
 			client, ok := item.(Client)
-			if ok {
+			if !ok {
+				log.Println("Not a Client object")
+			} else {
 				client.closeSignal <- struct{}{}
-			}			
+			}
 		}
+		hostConn.Close()
 		killWritePump <- struct{}{}
 	}()
-	hostSendChannel := make(chan []byte, 256)	
-	hostReceiveChannel := make(chan []byte, 256)
-	closeHostSignal := make(chan struct{}, 8)
 	
 	go writePump(hostConn, hostSendChannel, closeHostSignal, killWritePump)
 	go readPump(hostConn, hostReceiveChannel, closeHostSignal)
@@ -220,19 +224,7 @@ func runHost(hostConn *websocket.Conn, mm *Mastermap) {
 					log.Println( fmt.Sprintf("Unknown byte: %x", cmd) )
 			}
 
-		case <- closeHostSignal:	
-			closeHostSignal <- struct{}{}
-			for index, item := range clientList.items {
-				id := []byte(index)[0]
-				log.Println( fmt.Sprintf("Spider socket %x request close client: %x", key, []byte{id}) )
-				hostSendChannel <- createMessage(id, closeType)
-				client, ok := item.(Client)
-				if !ok {
-					log.Println("Not a Client object")
-				} else {
-					client.closeSignal <- struct{}{}
-				}
-			}
+		case <- closeHostSignal:
 		    return
 		}
 	}
@@ -254,6 +246,11 @@ func runClient(client *Client, hostSendChannel chan<- []byte, closeClientSignal 
 		select {
 		case <- client.closeSignal:
 			log.Println( fmt.Sprintf("Closing client socket: %x", []byte{id}) )
+			cm := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
+			err := client.conn.WriteMessage(websocket.CloseMessage, cm)
+			if  err != nil {
+				log.Printf( "Fail to send close message: %v", err )
+			}
 		    return
 
 		case message, ok := <-receiveChannel:
