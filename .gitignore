@@ -17,3 +17,4 @@
 /client-js/node_modules
 /client-js/package-lock.json
 .vscode/settings.json
+/.vscode
