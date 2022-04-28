@@ -33,18 +33,18 @@ export async function setupWebsocket(uri){
 
 export function wrapWebsocket(webSocket){
 
-    webSocket.onclose = () => {
+	webSocket.onclose = () => {
 		exposedFunctions.readyState = WebSocket.CLOSED;
 		exposedFunctions.onclose();
 	}
 	webSocket.onopen = () => exposedFunctions.readyState = WebSocket.OPEN;
-    webSocket.onerror = (e) => exposedFunctions.onerror(e);
-    webSocket.onmessage = messageEvent
+	webSocket.onerror = (e) => exposedFunctions.onerror(e);
+	webSocket.onmessage = messageEvent
 
 	let readQueue = util.waitQueue();
 
 	function messageEvent(event){
-        readQueue.push(new Uint8Array(event.data));
+		readQueue.push(new Uint8Array(event.data));
 	}
 
 	async function receive(waitTime){
@@ -67,18 +67,18 @@ export function wrapWebsocket(webSocket){
 		})
 	}
 
-    let exposedFunctions = {
+	let exposedFunctions = {
 		onerror: (e) => console.error('ERROR: ', e),
 		onclose: () => {},
-        close: close,
-        receive: receive,
-        send: send,
-        CONNECTING: WebSocket.CONNECTING,
-        OPEN: WebSocket.OPEN,
-        CLOSING: WebSocket.CLOSING,
-        CLOSED: WebSocket.CLOSED,
+		close: close,
+		receive: receive,
+		send: send,
+		CONNECTING: WebSocket.CONNECTING,
+		OPEN: WebSocket.OPEN,
+		CLOSING: WebSocket.CLOSING,
+		CLOSED: WebSocket.CLOSED,
 		readyState: WebSocket.OPEN
-    }
+	}
 
 	return exposedFunctions;
 }

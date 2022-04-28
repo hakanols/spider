@@ -20,8 +20,8 @@ export function hex2ab(hex){
 
 // Takes an ArrayBuffer and returns a hex-string
 export function ab2hex(array){
-    return Array.prototype.map.call(new Uint8Array(array),
-    		x => ('00' + x.toString(16)).slice(-2)).join('');
+	return Array.prototype.map.call(new Uint8Array(array),
+			x => ('00' + x.toString(16)).slice(-2)).join('');
 }
 
 // Compares two Uint8Arrays for byte equality
@@ -78,10 +78,10 @@ export function isString(arg) {
 // Returns true iff arg is an array
 export function isArray(arg) {
 	if (!Array.isArray) {
-	    return Object.prototype.toString.call(arg) === '[object Array]'
-  	} else {
-  		return Array.isArray(arg)
-  	}
+		return Object.prototype.toString.call(arg) === '[object Array]'
+	} else {
+		return Array.isArray(arg)
+	}
 }
 
 export async function sleep(ms) {
@@ -98,7 +98,7 @@ export function runWithTimeout(prom, time) {
 }
 
 export function triggWaiter(){
-    let trigger = null;
+	let trigger = null;
 
 	async function waiter(waitTime){
 		let startTime = performance.now()
@@ -113,7 +113,7 @@ export function triggWaiter(){
 	}
 
 	function trigg(){
-        if (trigger != null){
+		if (trigger != null){
 			trigger()
 		}
 	}
@@ -136,7 +136,7 @@ export function waitQueue(){
 		let delay = await trigger.waiter(waitTime)
 		data = queue.shift()
 		if (data != undefined){
-            return [data, delay];
+			return [data, delay];
 		}
 		return [null, waitTime]
 	}
@@ -146,8 +146,8 @@ export function waitQueue(){
 		trigger.trigg()
 	}
 
-    return {
-        pull: pull,
-        push: push
-    }
+	return {
+		pull: pull,
+		push: push
+	}
 }
