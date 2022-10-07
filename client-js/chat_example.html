@@ -72,7 +72,7 @@
                 setLink(currentUrl.origin+currentUrl.pathname+'?conn='+sessionId);
                 let socket;
                 while (true){
-                    socket = await newSocketQueue.pull(1000);
+                    socket = (await newSocketQueue.pull(1000))[0];
                     if (socket != null){
                         break;
                     }
