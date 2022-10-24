@@ -41,19 +41,19 @@ test('Test async timeout', async function (t) {
 test('Test async triggWaiter', async function (t) {
 	let trigger = util.triggWaiter()
 
-	let startTime = performance.now()
+	let startTime = Date.now()
 	trigger.waiter(500)
 	.then(function(diff){	
 		console.debug("Trigger wait reports time: " + diff)
 		t.pass("Should happen");
 	})
 	trigger.trigg();
-	t.ok(performance.now() - startTime < 50, "Should go fast");
+	t.ok(Date.now() - startTime < 50, "Should go fast");
 
-	startTime = performance.now();
+	startTime = Date.now();
 	let diff = await trigger.waiter(500);
 	console.debug("Trigger wait reports time: " + diff);
-	t.ok(450 < performance.now() - startTime, "Should go slow");
+	t.ok(450 < Date.now() - startTime, "Should go slow");
 
 	t.end();
 });

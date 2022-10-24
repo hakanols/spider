@@ -10,7 +10,7 @@
 
 ### Install
 * Golang
-* Node.js
+* Node.js (v14 or higher)
 * NPM
 
 ### Run
