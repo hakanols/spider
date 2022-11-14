@@ -43,10 +43,6 @@ export function uint8ArrayEquals(uints1, uints2){
 
 // Compares two ArrayBuffers for byte equality
 export function bufferEquals(buffer1, buffer2) {
-	if (!(buffer1 instanceof ArrayBuffer) ||
-		!(buffer2 instanceof ArrayBuffer)) {
-		throw new Error("Expected ArrayBuffers")
-	}
 	let bytes1 = new Uint8Array(buffer1);
 	let bytes2 = new Uint8Array(buffer2);
 	if (bytes1.length !== bytes2.length) {

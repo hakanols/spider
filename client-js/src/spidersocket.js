@@ -31,6 +31,9 @@ export async function createSpiderSocket(url, listener){
     function createSocket(sessionId){
 
         function send(payload){
+            if (!(payload instanceof Uint8Array)) {
+                payload = new Uint8Array(payload);
+            }
             spiderSend( new Uint8Array( [sessionId, messageTypeMessage, ...payload]) )
         }
 

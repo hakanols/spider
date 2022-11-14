@@ -7,6 +7,8 @@
         import qrcode from './lib/qrcode.js';
         import * as asyncsocket from './src/asyncsocket.js';
         import * as spidersocket from './src/spidersocket.js';
+        import nacl from './../lib/nacl-fast-es.js';
+        import * as saltChannel from './../lib/saltchannel.js';
 
         const serverAddress = "wss://spider-8t2d6.ondigitalocean.app/net";
         const msg = document.getElementById("msg");
@@ -15,7 +17,7 @@
         const linkItem = document.getElementById("link");
         const decoder = new TextDecoder('UTF-8')
         const encoder = new TextEncoder('UTF-8')
-        let clientConn;
+        let connection;
 
         msg.addEventListener("keyup", function(event) {
             if (event.keyCode == 13) {
@@ -25,7 +27,7 @@
         });
 
         function printToPage(message){
-            let row = '<div>'+message+'</div>';
+            const row = '<div>'+message+'</div>';
             log.innerHTML += row
         }
 
@@ -43,10 +45,10 @@
         }
 
         window.sendMessage = function(){
-            let text = msg.value;
-            if (clientConn && text) {
-                let bytes = encoder.encode(text);
-                clientConn.send(bytes);
+            const text = msg.value;
+            if (connection && text) {
+                const message = encoder.encode(text);
+                connection.send(message);
                 printToPage('Sent: '+text);
                 msg.value = "";
             }
@@ -55,19 +57,27 @@
         async function run() {
             const currentUrl = window.location;
             const urlParams = new URLSearchParams(currentUrl.search)
+            const signKeyPair = nacl.sign.keyPair()
+
             if (urlParams.has('conn')){
-                printToPage('As client')
+                printToPage('As client: ' + util.ab2hex(signKeyPair.publicKey));
                 lecode.hidden = true;
                 const sessionId = urlParams.get('conn')
-                let wsUrl = serverAddress+'/'+sessionId
-                clientConn = asyncsocket.wrapWebsocket(await asyncsocket.setupWebsocket(wsUrl));
+                const wsUrl = serverAddress+'/'+sessionId
+
+                const socket = await asyncsocket.setupWebsocket(wsUrl);
+                const scClient= saltChannel.client(socket)
+                const ephKeyPair = nacl.box.keyPair()
+                connection = await scClient.handshake(signKeyPair, ephKeyPair)    
+
+                printToPage('Connected to: '+ util.ab2hex(connection.serverSigPub));
              }
             else {
-                printToPage('As host')
-                let newSocketQueue = util.waitQueue();
-                let ss = await spidersocket.createSpiderSocket(serverAddress,
+                printToPage('As host: ' + util.ab2hex(signKeyPair.publicKey));
+                const newSocketQueue = util.waitQueue();
+                const ss = await spidersocket.createSpiderSocket(serverAddress,
 		            (newSocket) => newSocketQueue.push(newSocket) );
-                let sessionId = ss.getConnUrl().split('/').slice(-1).pop()
+                    const sessionId = ss.getConnUrl().split('/').slice(-1).pop()
                 console.log(sessionId);
                 setLink(currentUrl.origin+currentUrl.pathname+'?conn='+sessionId);
                 let socket;
@@ -77,17 +87,25 @@
                         break;
                     }
                 }
-                clientConn = asyncsocket.wrapWebsocket(socket)
-            }
+                const scHost = saltChannel.server(socket)
+                const VERSION = [...'SCv2'].map(letter=>letter.charCodeAt(0))
+	            const {protocol, message} = await scHost.runA1A2([VERSION], 60*60*1000)
 
+                const ephKeyPair = nacl.box.keyPair()
+                connection = await scHost.handshake(message, signKeyPair, ephKeyPair)
+                
+                printToPage('Connected to: '+ util.ab2hex(connection.clientSigPub));
+            }
             setLink(null)
             lecode.hidden = true;
-            printToPage('Connected')
             
             while (true){
-                let bytes = await clientConn.receive(50);
-                if (bytes != null){
-                    let text = decoder.decode(bytes)
+                const event = await connection.receive(50);
+                if (event.last){
+                    printToPage('Closed');
+                }
+                if (event.message != null){
+                    const text = decoder.decode(event.message)
                     printToPage('Received: '+text);
                 }
             }
