@@ -13,17 +13,21 @@
 * Node.js (v14 or higher)
 * NPM
 
+      npm install websocket
+      
 ### Run
 * Run Go from /
-  * go run .
-  * go test
+
+      go run .
+      go test
   
-* Run JS testes. Have a Spider server runing on localhost (go run .)
-  * npm run test
-  * npm run browser
-  * npm run chat
+* Run JS tests from /test. Have a Spider server runing on localhost (go run .)
+
+      npm run test
+      npm run browser
+      npm run chat
 
 * Local Docker
 
-        docker build --rm -t spider .
-        docker run --rm -p 8080:8080/tcp -t spider
+      docker build --rm -t spider .
+      docker run --rm -p 8080:8080/tcp -t spider
